@@ -1,0 +1,57 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Publish App
+        # Using PublishSingleFile for a clean distribution
+        run: dotnet publish clock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+
+      - name: Zip Release
+        shell: pwsh
+        run: |
+          # The publish directory contains the .exe and Assets/ folder
+          Compress-Archive -Path publish/* -DestinationPath clock.zip
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: clock.zip
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Clock v${{ github.ref_name }}
+            
+            Automatic build by GitHub Actions.
+            
+            ### Installation
+            1. Download `clock.zip` below.
+            2. Extract to a folder.
+            3. **Important**: Add your notification sound as `Assets/notify.wav`.
+            4. Run `clock.exe`.
+            
+            ---
+            *Built with Google Gemini & GitHub Actions*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
