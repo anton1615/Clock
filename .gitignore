@@ -1,0 +1,39 @@
+# Visual Studio & .NET defaults
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.lock.json
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleges/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Project specifics
+# Exclude sound assets to avoid copyright issues
+Assets/*.wav
+!Assets/.gitkeep
+
+# Exclude local settings (user preferences)
+setting.json
+MyPomodoro/
+
+# Conductor files (Optional: keep or exclude depending on preference)
+conductor/archive/
+conductor/setup_state.json
+
+# Tests
+TestResults/

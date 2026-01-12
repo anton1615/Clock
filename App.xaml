@@ -1,0 +1,12 @@
+<Application x:Class="clock.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:clock.ViewModels;assembly=clock.Lib">
+    <Application.Resources>
+        <!-- 全域轉換器 -->
+        <vm:FontSizeToWidthConverter x:Key="FontSizeToWidthConverter"/>
+        <vm:RatioConverter x:Key="RatioConverter"/>
+        <vm:FontSizeMultiplierConverter x:Key="FontSizeMultiplierConverter"/>
+        <vm:FontSizeRatioConverter x:Key="FontSizeRatioConverter"/>
+    </Application.Resources>
+</Application>

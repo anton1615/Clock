@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    
+    <!-- 設定 EXE 檔案本身的圖示 (檔案總管看到的) -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    
+    <DefaultItemExcludes>$(DefaultItemExcludes);clock.Lib\**;Tests\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.0.124" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 程式執行時 Tray Icon 使用的資源 -->
+    <Resource Include="Assets\app.ico" />
+    
+    <!-- 音效檔案：維持外部存放，方便更換 -->
+    <None Update="Assets\notify.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="clock.Lib\clock.Lib.csproj" />
+  </ItemGroup>
+
+</Project>
