@@ -16,8 +16,8 @@ Designed to stay out of your way while keeping you focused.
 *   **Minimalist Widget**: Frameless window that sits quietly on your desktop.
 *   **Always Visible**: Smart positioning logic ensures it stays on top of your taskbar but doesn't block your work.
 *   **Two-Phase Cycle**: Simple "WORK" and "BREAK" phases with visual progress indicators.
-*   **Instant Interaction**: Click to pause/resume, one-click phase switching.
-*   **Hacker-Friendly Config**: Customize colors, fonts, and behavior via `setting.json`.
+*   **Instant Interaction**: Click the progress bar to pause/resume, one-click phase switching.
+*   **Hacker-Friendly Config**: Customize colors, fonts, and behavior via `setting.json` or graphical interface.
 *   **System Tray Integration**: Hides gracefully to the tray when needed.
 
 ## Installation & Setup

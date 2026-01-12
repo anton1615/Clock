@@ -31,5 +31,4 @@ MyPomodoro/
 
 # Exclude Development/AI Tooling metadata (Optional)
 conductor/
-Tests/
 TestResults/
