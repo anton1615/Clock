@@ -24,8 +24,8 @@ jobs:
         run: dotnet restore
 
       - name: Publish App
-        # Using PublishSingleFile for a clean distribution
-        run: dotnet publish clock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+        # Using PublishSingleFile and disabling PDB for a clean distribution
+        run: dotnet publish clock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:CopyOutputSymbolsToPublishDirectory=false -o publish
 
       - name: Zip Release
         shell: pwsh
