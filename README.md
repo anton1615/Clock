@@ -1,8 +1,12 @@
 # Clock - Minimalist Pomodoro Timer
 
-![Made with Google Gemini](https://img.shields.io/badge/AI-Generated_by_Google_Gemini-8E75B2)
+![Made with Google Gemini](https://img.shields.io/badge/AI--Generated_by_Google_Gemini-8E75B2)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg) 
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
+
+<p align="center">
+  <img src="screenshot.png" alt="Clock Screenshot">
+</p>
 
 A minimalist, unobtrusive Pomodoro timer widget for Windows, built with .NET 10 and WPF.
 Designed to stay out of your way while keeping you focused.
