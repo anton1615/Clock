@@ -32,7 +32,9 @@ To respect copyright laws, **this repository does not include sound files**. You
 
 ## Configuration (`setting.json`)
 
-On the first run, a `setting.json` file will be generated in the application directory. You can edit this file to customize your experience:
+On the first run, a `setting.json` file will be generated in the application directory. You can edit this file manually or **right-click the system tray icon and select "Settings"** to open the graphical configuration interface.
+
+You can customize the following properties:
 
 ```json
 {

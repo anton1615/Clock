@@ -9,9 +9,7 @@ obj/
 
 # Build results
 [Dd]ebug/
-[Dd]ebugPublic/
 [Rr]elease/
-[Rr]eleges/
 x64/
 x86/
 [Aa][Rr][Mm]/
@@ -31,9 +29,7 @@ Assets/*.wav
 setting.json
 MyPomodoro/
 
-# Conductor files (Optional: keep or exclude depending on preference)
-conductor/archive/
-conductor/setup_state.json
-
-# Tests
+# Exclude Development/AI Tooling metadata (Optional)
+conductor/
+Tests/
 TestResults/
