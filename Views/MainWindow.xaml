@@ -87,7 +87,7 @@
             <!-- 畫布高度微調至 125，更緊湊 -->
             <Border Width="350" Height="125"
                     CornerRadius="25" 
-                    Background="{Binding Settings.BackgroundColorBrush}"
+                    Background="{Binding CurrentBackgroundColor}"
                     Padding="15,0,15,0" 
                     MouseLeftButtonDown="BackgroundBorder_MouseLeftButtonDown">
 

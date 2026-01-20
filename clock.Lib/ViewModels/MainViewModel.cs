@@ -83,7 +83,11 @@ namespace clock.ViewModels
                     UpdateDisplayTime();
                     OnPropertyChanged(nameof(ProgressValue));
                 }
-                if (e.PropertyName == nameof(PomodoroEngine.IsWorkPhase)) OnPropertyChanged(nameof(CurrentPhaseColor));
+                if (e.PropertyName == nameof(PomodoroEngine.IsWorkPhase))
+                {
+                    OnPropertyChanged(nameof(CurrentPhaseColor));
+                    OnPropertyChanged(nameof(CurrentBackgroundColor));
+                }
                 if (e.PropertyName == nameof(PomodoroEngine.IsPaused)) OnPropertyChanged(nameof(Engine)); 
             };
 
@@ -93,8 +97,32 @@ namespace clock.ViewModels
                 {
                     UpdateWindowSize();
                 }
-                if (e.PropertyName == nameof(AppSettings.IsBold)) OnPropertyChanged(nameof(Settings)); 
+                if (e.PropertyName == nameof(AppSettings.IsBold)) OnPropertyChanged(nameof(Settings));
+                if (e.PropertyName == nameof(AppSettings.WorkColor) || e.PropertyName == nameof(AppSettings.BreakColor))
+                {
+                    OnPropertyChanged(nameof(CurrentPhaseColor));
+                    OnPropertyChanged(nameof(CurrentBackgroundColor));
+                }
             };
+        }
+
+        /// <summary>
+        /// 根據當前階段回傳對應的深色背景。
+        /// </summary>
+        public SolidColorBrush CurrentBackgroundColor
+        {
+            get
+            {
+                var baseColor = CurrentPhaseColor.Color;
+                // 將顏色變深：乘以 0.15 左右
+                var darkColor = Color.FromArgb(
+                    baseColor.A,
+                    (byte)(baseColor.R * 0.15),
+                    (byte)(baseColor.G * 0.15),
+                    (byte)(baseColor.B * 0.15)
+                );
+                return new SolidColorBrush(darkColor);
+            }
         }
 
         private void UpdateWindowSize()
