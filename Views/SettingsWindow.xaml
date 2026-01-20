@@ -31,7 +31,7 @@
             <TextBlock Text="Background Opacity (0-255)"/>
             <Slider x:Name="AlphaSlider" Minimum="0" Maximum="255" Margin="0,0,0,10"/>
 
-            <TextBlock Text="Font Size (Window Size)"/>
+            <TextBlock Text="Window Size"/>
             <!-- 確保最小值夠小，允許縮得很小 -->
             <Slider x:Name="WindowSizeSlider" Minimum="15" Maximum="150" Margin="0,0,0,10"/>
 

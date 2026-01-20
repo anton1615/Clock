@@ -87,14 +87,30 @@ namespace clock.Views
         {
             if (width > 0 && height > 0)
             {
-                this.Width = width;
-                this.Height = height;
-                this.InvalidateMeasure();
-                
                 if (_isInitialLoad)
                 {
+                    this.Width = width;
+                    this.Height = height;
                     MoveToBottomCenter();
                 }
+                else
+                {
+                    // 以底部中央為基準點 (Bottom-Center Anchor) 進行縮放
+                    double oldWidth = this.Width;
+                    double oldHeight = this.Height;
+
+                    double dWidth = width - oldWidth;
+                    double dHeight = height - oldHeight;
+
+                    // 調整位置以抵銷長寬變化的位移
+                    this.Left -= dWidth / 2;
+                    this.Top -= dHeight;
+
+                    this.Width = width;
+                    this.Height = height;
+                }
+                
+                this.InvalidateMeasure();
             }
         }
 
