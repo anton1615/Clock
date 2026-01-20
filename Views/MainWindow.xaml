@@ -123,14 +123,10 @@
 
                         <!-- 按鈕 -->
                         <Button Grid.Column="1" 
-                                Content="→"
                                 Command="{Binding TogglePhaseCommand}"
                                 PreviewMouseLeftButtonDown="Button_PreviewMouseLeftButtonDown"
-                                FontSize="50"
-                                FontWeight="Bold"
                                 Width="60"
                                 Height="60"
-                                FontFamily="{Binding Settings.FontFamily}"
                                 Foreground="{Binding Settings.TextColorBrush}"
                                 Background="Transparent" 
                                 BorderBrush="{Binding Settings.TextColorBrush}"
@@ -139,16 +135,23 @@
                                 VerticalAlignment="Center">
                              <Button.Template>
                                  <ControlTemplate TargetType="Button">
-                                     <Border Background="#10FFFFFF" 
+                                     <Border x:Name="BtnBorder"
+                                             Background="#10FFFFFF" 
                                              BorderBrush="{TemplateBinding BorderBrush}"
                                              BorderThickness="{TemplateBinding BorderThickness}"
                                              CornerRadius="20">
-                                         <Viewbox Stretch="Uniform" Margin="6"> 
-                                            <TextBlock Text="{TemplateBinding Content}" 
-                                                       FontWeight="Bold"
-                                                       Foreground="{TemplateBinding Foreground}"/>
+                                         <Viewbox Stretch="Uniform" Margin="10"> 
+                                            <Path x:Name="BtnPath" 
+                                                  Data="M 0,0 L 10,6 L 0,12 Z M 10,0 L 20,6 L 10,12 Z" 
+                                                  Fill="{TemplateBinding Foreground}"/>
                                          </Viewbox>
                                      </Border>
+                                     <ControlTemplate.Triggers>
+                                         <Trigger Property="IsMouseOver" Value="True">
+                                             <Setter TargetName="BtnBorder" Property="Background" Value="#30FFFFFF"/>
+                                             <Setter TargetName="BtnPath" Property="Opacity" Value="0.8"/>
+                                         </Trigger>
+                                     </ControlTemplate.Triggers>
                                  </ControlTemplate>
                              </Button.Template>
                         </Button>
