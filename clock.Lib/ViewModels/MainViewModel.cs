@@ -131,7 +131,7 @@ namespace clock.ViewModels
             if (width > 1200) width = 1200;
 
             WindowWidth = width;
-            WindowHeight = width * 0.45;
+            WindowHeight = width * 0.38; // 從 0.45 調為 0.38，更貼近 Border 的比例 (125/350 ≈ 0.36)
         }
 
         private void UpdateDisplayTime()

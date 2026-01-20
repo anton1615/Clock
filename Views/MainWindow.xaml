@@ -83,7 +83,7 @@
             </tb:TaskbarIcon.ContextMenu>
         </tb:TaskbarIcon>
 
-        <Viewbox Stretch="Uniform">
+        <Viewbox Stretch="Uniform" VerticalAlignment="Bottom">
             <!-- 畫布高度微調至 125，更緊湊 -->
             <Border Width="350" Height="125"
                     CornerRadius="25" 

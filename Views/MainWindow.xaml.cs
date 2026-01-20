@@ -121,8 +121,8 @@ namespace clock.Views
 
             this.Left = (screenWidth - this.Width) / 2;
             
-            // 緊貼螢幕底部，確保覆蓋工具列
-            this.Top = screenHeight - this.Height;
+            // 緊貼螢幕底部，+2 讓它更往下貼合邊緣
+            this.Top = screenHeight - this.Height + 2;
         }
 
         private void BackgroundBorder_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
