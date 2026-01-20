@@ -6,6 +6,25 @@
         ResizeMode="NoResize"
         Background="#F0F0F0">
     
+    <Window.Resources>
+        <Style x:Key="ColorCircleStyle" TargetType="Button">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="12" 
+                                BorderBrush="#CCC" 
+                                BorderThickness="1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="20">
             <TextBlock Text="⏱ Durations (Next Phase)" FontWeight="Bold" Margin="0,0,0,10"/>
@@ -37,17 +56,62 @@
 
             <CheckBox x:Name="BoldCheck" Content="Font Bold" Margin="0,5,0,10" FontWeight="Bold"/>
 
-            <TextBlock Text="Font Family (e.g. Segoe UI)"/>
-            <TextBox x:Name="FontFamilyBox" Margin="0,0,0,10" Padding="5"/>
+            <TextBlock Text="Font Family"/>
+            <ComboBox x:Name="FontFamilyCombo" Margin="0,0,0,10" Padding="5" DisplayMemberPath="Source">
+                <!-- Will be populated in code-behind -->
+            </ComboBox>
 
-            <TextBlock Text="Text Color (Hex/Name)"/>
-            <TextBox x:Name="TextColorBox" Margin="0,0,0,10" Padding="5"/>
+            <TextBlock Text="Sound Path"/>
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="SoundPathBox" IsReadOnly="True" VerticalContentAlignment="Center" Padding="5"/>
+                <Button Grid.Column="1" Content="Browse..." Click="BrowseSound_Click" Padding="10,0" Margin="5,0,0,0"/>
+            </Grid>
 
-            <TextBlock Text="Work Color (Hex/Name)"/>
-            <TextBox x:Name="WorkColorBox" Margin="0,0,0,10" Padding="5"/>
+            <!-- Text Color -->
+            <TextBlock Text="Text Color"/>
+            <StackPanel Margin="0,0,0,10">
+                <Grid Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="TextColorPreview" Width="24" Height="24" CornerRadius="12" BorderBrush="Gray" BorderThickness="1" Margin="0,0,8,0"/>
+                    <TextBox x:Name="TextColorBox" Grid.Column="1" Padding="5"/>
+                </Grid>
+                <WrapPanel x:Name="TextColorPresets"/>
+            </StackPanel>
 
-            <TextBlock Text="Break Color (Hex/Name)"/>
-            <TextBox x:Name="BreakColorBox" Margin="0,0,0,10" Padding="5"/>
+            <!-- Work Color -->
+            <TextBlock Text="Work Bar Color"/>
+            <StackPanel Margin="0,0,0,10">
+                <Grid Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="WorkColorPreview" Width="24" Height="24" CornerRadius="12" BorderBrush="Gray" BorderThickness="1" Margin="0,0,8,0"/>
+                    <TextBox x:Name="WorkColorBox" Grid.Column="1" Padding="5"/>
+                </Grid>
+                <WrapPanel x:Name="WorkColorPresets"/>
+            </StackPanel>
+
+            <!-- Break Color -->
+            <TextBlock Text="Break Bar Color"/>
+            <StackPanel Margin="0,0,0,10">
+                <Grid Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="BreakColorPreview" Width="24" Height="24" CornerRadius="12" BorderBrush="Gray" BorderThickness="1" Margin="0,0,8,0"/>
+                    <TextBox x:Name="BreakColorBox" Grid.Column="1" Padding="5"/>
+                </Grid>
+                <WrapPanel x:Name="BreakColorPresets"/>
+            </StackPanel>
 
             <TextBlock Text="Notification Volume"/>
             <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Margin="0,0,0,20"/>
