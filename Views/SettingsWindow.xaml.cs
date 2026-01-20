@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Win32;
 using clock.Models;
+using clock.Core;
 
 namespace clock.Views
 {
@@ -23,6 +24,9 @@ namespace clock.Views
             AlphaSlider.Value = _settings.BackgroundAlpha;
             WindowSizeSlider.Value = _settings.WindowSize;
             BoldCheck.IsChecked = _settings.IsBold;
+
+            // 啟動時檢查實際檔案狀態，讓介面更精準
+            _settings.IsStartupEnabled = StartupService.IsStartupEnabled();
             StartupCheck.IsChecked = _settings.IsStartupEnabled;
             
             // 初始化字型選單
@@ -109,17 +113,6 @@ namespace clock.Views
             }
         }
 
-using clock.Core;
-using clock.Models;
-
-namespace clock.Views
-{
-    public partial class SettingsWindow : Window
-    {
-        private AppSettings _settings;
-
-        public SettingsWindow(AppSettings settings)
-// ... (中間代碼不變)
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             if (int.TryParse(WorkDurationBox.Text, out int work) && int.TryParse(BreakDurationBox.Text, out int brk))
