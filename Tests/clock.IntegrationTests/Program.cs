@@ -17,6 +17,7 @@ namespace clock.IntegrationTests
                 Test_TogglePhase();
                 Test_TogglePause();
                 Test_Settings();
+                Test_StartupService();
                 Console.WriteLine("All tests passed!");
             }
             catch (Exception ex)
@@ -29,13 +30,25 @@ namespace clock.IntegrationTests
 
         static void Test_Settings()
         {
-            var settings = new AppSettings { WorkDuration = 99 };
+            var settings = new AppSettings { WorkDuration = 99, IsStartupEnabled = true };
             settings.Save();
 
             var loaded = AppSettings.Load();
             if (loaded.WorkDuration != 99) throw new Exception("Settings persistence failed");
+            if (!loaded.IsStartupEnabled) throw new Exception("IsStartupEnabled persistence failed");
             
             Console.WriteLine("Test_Settings Passed");
+        }
+
+        static void Test_StartupService()
+        {
+            StartupService.SetStartup(true);
+            if (!StartupService.IsStartupEnabled()) throw new Exception("StartupService failed to enable");
+
+            StartupService.SetStartup(false);
+            if (StartupService.IsStartupEnabled()) throw new Exception("StartupService failed to disable");
+
+            Console.WriteLine("Test_StartupService Passed");
         }
 
         static void Test_InitialState()
