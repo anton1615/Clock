@@ -15,6 +15,7 @@
 *   **設定儲存**: JSON
     *   設定儲存於 `setting.json` (位於程式執行路徑下)。
 *   **開機啟動管理**：透過 `StartupService` 於 Windows 啟動資料夾實作捷徑管理邏輯。
+*   **服務解耦**: 使用 `ISettingsService` 處理跨專案的 UI 導覽。
 
 ## 資源管理
 *   `Assets/`: 存放應用程式圖示 (.ico) 與提示音效 (.wav)。
