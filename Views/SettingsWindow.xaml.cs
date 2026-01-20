@@ -23,6 +23,7 @@ namespace clock.Views
             AlphaSlider.Value = _settings.BackgroundAlpha;
             WindowSizeSlider.Value = _settings.WindowSize;
             BoldCheck.IsChecked = _settings.IsBold;
+            StartupCheck.IsChecked = _settings.IsStartupEnabled;
             
             // 初始化字型選單
             FontFamilyCombo.ItemsSource = Fonts.SystemFontFamilies.OrderBy(f => f.Source);
@@ -53,6 +54,8 @@ namespace clock.Views
             InitializeColorPicker(BreakColorPresets, BreakColorBox, BreakColorPreview, c => _settings.BreakColor = c, _settings.BreakColor);
 
             VolumeSlider.ValueChanged += (s, e) => _settings.Volume = VolumeSlider.Value;
+            StartupCheck.Checked += (s, e) => _settings.IsStartupEnabled = true;
+            StartupCheck.Unchecked += (s, e) => _settings.IsStartupEnabled = false;
         }
 
         private void InitializeColorPicker(WrapPanel panel, TextBox box, Border preview, Action<string> updateAction, string initialValue, bool isText = false)
@@ -106,6 +109,17 @@ namespace clock.Views
             }
         }
 
+using clock.Core;
+using clock.Models;
+
+namespace clock.Views
+{
+    public partial class SettingsWindow : Window
+    {
+        private AppSettings _settings;
+
+        public SettingsWindow(AppSettings settings)
+// ... (中間代碼不變)
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             if (int.TryParse(WorkDurationBox.Text, out int work) && int.TryParse(BreakDurationBox.Text, out int brk))
@@ -113,6 +127,10 @@ namespace clock.Views
                 _settings.WorkDuration = work;
                 _settings.BreakDuration = brk;
                 _settings.Save();
+
+                // 呼叫服務套用開機啟動設定
+                StartupService.SetStartup(_settings.IsStartupEnabled);
+
                 this.Close();
             }
             else
