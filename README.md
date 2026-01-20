@@ -16,8 +16,12 @@ Designed to stay out of your way while keeping you focused.
 *   **Minimalist Widget**: Frameless window that sits quietly on your desktop.
 *   **Always Visible**: Smart positioning logic ensures it stays on top of your taskbar but doesn't block your work.
 *   **Two-Phase Cycle**: Simple "WORK" and "BREAK" phases with visual progress indicators.
-*   **Instant Interaction**: Click the progress bar to pause/resume, one-click phase switching.
-*   **Hacker-Friendly Config**: Customize colors, fonts, and behavior via `setting.json` or graphical interface.
+*   **Dynamic Theme Background**: Background color automatically adjusts to a darker version of the current phase color.
+*   **Instant Interaction**: Click the progress bar to pause/resume, one-click phase switching via modern icon buttons (⏩).
+*   **Visual Feedback**: Progress bar and buttons highlight on hover to indicate interactability.
+*   **Hacker-Friendly Config**: Customize colors, fonts, and behavior via `setting.json` or a comprehensive graphical interface.
+*   **Modern Settings GUI**: Intuitive color pickers, font family dropdown, and audio file browser.
+*   **Run at Startup**: Option to automatically start with Windows.
 *   **System Tray Integration**: Hides gracefully to the tray when needed.
 
 ## Installation & Setup
@@ -32,27 +36,35 @@ To respect copyright laws, **this repository does not include sound files**. You
 1.  Find a sound effect you like (e.g., a `.wav` file).
 2.  Rename it to `notify.wav` (optional, but recommended default).
 3.  Place the file in the `Assets` folder next to the executable.
-    *   *Alternatively*, you can specify a custom path in `setting.json`.
+    *   *Alternatively*, use the **"Browse..." button** in the Settings GUI to select any `.wav` file on your computer.
+    *   *Config file*: You can also specify a custom path in `setting.json`.
 
 ## Configuration (`setting.json`)
 
 On the first run, a `setting.json` file will be generated in the application directory. You can edit this file manually or right-click the system tray icon and select "Settings" to open the graphical configuration interface.
 
-You can customize the following properties:
+The **Settings GUI** now features:
+*   **Visual Color Pickers**: Select colors from a palette with live previews.
+*   **Font Family Dropdown**: Choose from all installed system fonts.
+*   **File Browser**: Easily pick your notification sound file.
+*   **Startup Toggle**: One-click to enable or disable "Run at Startup".
+
+### Config Properties:
 
 ```json
 {
-  "WorkDuration": 30,          // Minutes
-  "BreakDuration": 6,          // Minutes
+  "WorkDuration": 25,          // Minutes
+  "BreakDuration": 5,           // Minutes
   "BackgroundAlpha": 200,      // 0-255 (Transparency)
-  "FontSize": 50,              // Widget size scales with font size
+  "WindowSize": 50,            // Widget size (scales with current position anchor)
   "FontFamily": "Segoe UI",
   "TextColor": "White",
   "IsBold": true,
   "Volume": 50,                // 0-100
   "WorkColor": "#FF8C00",      // Hex color
   "BreakColor": "#32CD32",
-  "SoundPath": "Assets/notify.wav" // Path to your sound file
+  "SoundPath": "Assets/notify.wav", // Path to your sound file
+  "IsStartupEnabled": false     // Run at startup status
 }
 ```
 
