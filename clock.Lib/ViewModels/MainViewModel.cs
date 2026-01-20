@@ -63,11 +63,10 @@ namespace clock.ViewModels
         {
             _settingsService = settingsService;
             Settings = AppSettings.Load();
-            // ...
             
-            if (Settings.FontSize < 10 || Settings.FontSize > 200) 
+            if (Settings.WindowSize < 10 || Settings.WindowSize > 200) 
             {
-                Settings.FontSize = 50; 
+                Settings.WindowSize = 50; 
             }
 
             UpdateWindowSize();
@@ -93,12 +92,12 @@ namespace clock.ViewModels
 
             Settings.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(AppSettings.FontSize))
+                if (e.PropertyName == nameof(AppSettings.WindowSize))
                 {
                     UpdateWindowSize();
                 }
                 if (e.PropertyName == nameof(AppSettings.IsBold)) OnPropertyChanged(nameof(Settings));
-                if (e.PropertyName == nameof(AppSettings.WorkColor) || e.PropertyName == nameof(AppSettings.BreakColor))
+                if (e.PropertyName == nameof(AppSettings.WorkColor) || e.PropertyName == nameof(AppSettings.BreakColor) || e.PropertyName == nameof(AppSettings.BackgroundAlpha))
                 {
                     OnPropertyChanged(nameof(CurrentPhaseColor));
                     OnPropertyChanged(nameof(CurrentBackgroundColor));
@@ -114,12 +113,12 @@ namespace clock.ViewModels
             get
             {
                 var baseColor = CurrentPhaseColor.Color;
-                // 將顏色變深：乘以 0.15 左右
+                // 將顏色變深：乘以 0.3 左右 (比之前亮一點)
                 var darkColor = Color.FromArgb(
-                    baseColor.A,
-                    (byte)(baseColor.R * 0.15),
-                    (byte)(baseColor.G * 0.15),
-                    (byte)(baseColor.B * 0.15)
+                    Settings.BackgroundAlpha,
+                    (byte)(baseColor.R * 0.3),
+                    (byte)(baseColor.G * 0.3),
+                    (byte)(baseColor.B * 0.3)
                 );
                 return new SolidColorBrush(darkColor);
             }
@@ -127,7 +126,7 @@ namespace clock.ViewModels
 
         private void UpdateWindowSize()
         {
-            double width = Settings.FontSize * 6.0;
+            double width = Settings.WindowSize * 6.0;
             if (width < 60) width = 60;
             if (width > 1200) width = 1200;
 

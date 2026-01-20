@@ -62,11 +62,6 @@
                                 </Grid>
                             </Decorator>
                         </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="IndicatorRect" Property="Opacity" Value="0.7"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -140,10 +135,12 @@
                                              BorderBrush="{TemplateBinding BorderBrush}"
                                              BorderThickness="{TemplateBinding BorderThickness}"
                                              CornerRadius="20">
-                                         <Viewbox Stretch="Uniform" Margin="10"> 
+                                         <Viewbox Stretch="Uniform" Margin="12"> 
                                             <Path x:Name="BtnPath" 
                                                   Data="M 0,0 L 10,6 L 0,12 Z M 10,0 L 20,6 L 10,12 Z" 
-                                                  Fill="{TemplateBinding Foreground}"/>
+                                                  Fill="{TemplateBinding Foreground}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
                                          </Viewbox>
                                      </Border>
                                      <ControlTemplate.Triggers>
@@ -168,14 +165,21 @@
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Grid Background="Transparent"> 
-                                    <ProgressBar Value="{Binding ProgressValue, Mode=OneWay}" 
+                                    <ProgressBar x:Name="InnerProgressBar"
+                                                 Value="{Binding ProgressValue, Mode=OneWay}" 
                                                  Maximum="1.0"
                                                  Minimum="0.0"
                                                  Height="16"
                                                  Foreground="{Binding CurrentPhaseColor}"
                                                  Style="{StaticResource FlatProgressBarStyle}"
-                                                 VerticalAlignment="Center"/>
+                                                 VerticalAlignment="Center"
+                                                 IsHitTestVisible="False"/>
                                 </Grid>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="InnerProgressBar" Property="Opacity" Value="0.7"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </Button.Template>
                     </Button>

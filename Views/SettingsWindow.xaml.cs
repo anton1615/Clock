@@ -18,7 +18,7 @@ namespace clock.Views
             BreakDurationBox.Text = _settings.BreakDuration.ToString();
             
             AlphaSlider.Value = _settings.BackgroundAlpha;
-            FontSizeSlider.Value = _settings.FontSize;
+            WindowSizeSlider.Value = _settings.WindowSize;
             BoldCheck.IsChecked = _settings.IsBold;
             
             FontFamilyBox.Text = _settings.FontFamily;
@@ -29,7 +29,7 @@ namespace clock.Views
 
             // 即時預覽設定 (Live Preview)
             AlphaSlider.ValueChanged += (s, e) => _settings.BackgroundAlpha = (byte)AlphaSlider.Value;
-            FontSizeSlider.ValueChanged += (s, e) => _settings.FontSize = FontSizeSlider.Value;
+            WindowSizeSlider.ValueChanged += (s, e) => _settings.WindowSize = WindowSizeSlider.Value;
             BoldCheck.Checked += (s, e) => _settings.IsBold = true;
             BoldCheck.Unchecked += (s, e) => _settings.IsBold = false;
             

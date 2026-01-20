@@ -13,14 +13,14 @@
 - [x] **Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)** 6aa5c14
 
 ## Phase 2: Main Window Visual Modernization
-- [ ] **Task: Implement Dynamic Background Logic**
+- [x] **Task: Implement Dynamic Background Logic** 3de0c3c
     - [ ] Add `CurrentBackgroundColor` property to `MainViewModel`.
     - [ ] Implement color conversion logic: darken the user-set Work/Break colors.
-- [ ] **Task: Progress Bar Hover Effect (XAML Style)**
+- [x] **Task: Progress Bar Hover Effect (XAML Style)** e9fca87
     - [ ] Update `MainWindow.xaml` to add a `Style` and `ControlTemplate` for the progress bar.
     - [ ] Use `Trigger` for `IsMouseOver` to change the foreground or opacity.
-- [ ] **Task: Icon-based Skip Button**
-    - [ ] Use `Path` to draw a ⏩ icon instead of text.
+- [x] **Task: Icon-based Skip Button** 2f4aab1
+    - [ ] Use `Path` to draw a ??icon instead of text.
     - [ ] Apply modern button style (borderless, hover highlight).
 - [ ] **Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)**
 

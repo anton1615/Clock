@@ -23,6 +23,7 @@ namespace clock.Views
         private const uint SWP_SHOWWINDOW = 0x0040;
 
         private DispatcherTimer _topmostTimer = null!;
+        private bool _isInitialLoad = true;
 
         public MainWindow()
         {
@@ -34,6 +35,7 @@ namespace clock.Views
             if (DataContext is MainViewModel vm)
             {
                 UpdateSize(vm.WindowWidth, vm.WindowHeight);
+                _isInitialLoad = false;
 
                 vm.PropertyChanged += (s, args) =>
                 {
@@ -88,7 +90,11 @@ namespace clock.Views
                 this.Width = width;
                 this.Height = height;
                 this.InvalidateMeasure();
-                MoveToBottomCenter();
+                
+                if (_isInitialLoad)
+                {
+                    MoveToBottomCenter();
+                }
             }
         }
 

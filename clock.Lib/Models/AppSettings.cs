@@ -10,14 +10,14 @@ namespace clock.Models
 {
     public partial class AppSettings : ObservableObject
     {
-        [ObservableProperty] private int _workDuration = 30;
-        [ObservableProperty] private int _breakDuration = 6;
+        [ObservableProperty] private int _workDuration = 25;
+        [ObservableProperty] private int _breakDuration = 5;
         
         [ObservableProperty] 
         [NotifyPropertyChangedFor(nameof(BackgroundColorBrush))]
         private byte _backgroundAlpha = 200;
 
-        [ObservableProperty] private double _fontSize = 50;
+        [ObservableProperty] private double _windowSize = 50;
         [ObservableProperty] private string _fontFamily = "Segoe UI";
         
         [ObservableProperty] 
@@ -93,9 +93,9 @@ namespace clock.Models
             }
 
             // 修正：將下限從 20 改為 10，避免使用者設很小時被重置
-            if (settings.FontSize < 10 || settings.FontSize > 200)
+            if (settings.WindowSize < 10 || settings.WindowSize > 200)
             {
-                settings.FontSize = 50;
+                settings.WindowSize = 50;
             }
 
             return settings;

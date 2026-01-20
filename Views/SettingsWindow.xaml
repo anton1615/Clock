@@ -33,7 +33,7 @@
 
             <TextBlock Text="Font Size (Window Size)"/>
             <!-- 確保最小值夠小，允許縮得很小 -->
-            <Slider x:Name="FontSizeSlider" Minimum="15" Maximum="150" Margin="0,0,0,10"/>
+            <Slider x:Name="WindowSizeSlider" Minimum="15" Maximum="150" Margin="0,0,0,10"/>
 
             <CheckBox x:Name="BoldCheck" Content="Font Bold" Margin="0,5,0,10" FontWeight="Bold"/>
 
