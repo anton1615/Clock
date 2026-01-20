@@ -32,6 +32,7 @@ namespace clock.Models
         [ObservableProperty] private string _workColor = "#FF8C00";
         [ObservableProperty] private string _breakColor = "#32CD32";
         [ObservableProperty] private string _soundPath = "Assets/notify.wav";
+        [ObservableProperty] private bool _isStartupEnabled = false;
 
         [JsonIgnore]
         public FontWeight SelectedFontWeight => IsBold ? FontWeights.Bold : FontWeights.Normal;
