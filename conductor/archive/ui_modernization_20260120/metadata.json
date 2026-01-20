@@ -1,8 +1,0 @@
-{
-  "track_id": "ui_modernization_20260120",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2026-01-20T14:40:00Z",
-  "updated_at": "2026-01-20T14:40:00Z",
-  "description": "Modernize UI/UX, add GUI pickers for settings, dynamic background colors, and startup option."
-}
