@@ -21,13 +21,23 @@ Designed to stay out of your way while keeping you focused.
 *   **Visual Feedback**: Progress bar and buttons highlight on hover to indicate interactability.
 *   **Hacker-Friendly Config**: Customize colors, fonts, and behavior via `setting.json` or a comprehensive graphical interface.
 *   **Modern Settings GUI**: Intuitive color pickers, font family dropdown, and audio file browser.
+*   **Android Sync (New!)**: Real-time synchronization with an Android companion app via LAN or Tailscale.
 *   **Run at Startup**: Option to automatically start with Windows.
-*   **System Tray Integration**: Hides gracefully to the tray when needed.
 
 ## Installation & Setup
 
 1.  Download the latest release (or build from source).
 2.  Run `clock.exe`.
+
+### 📱 Android Synchronization (BETA)
+
+The Windows version now includes a built-in server for real-time syncing with an Android device.
+
+*   **How it works**: Uses mDNS for automatic discovery and SignalR for sub-100ms synchronization.
+*   **Network Requirement**: Both devices must be on the same **Local Area Network (LAN)** or connected via **Tailscale**.
+*   **Firewall Setup**: 
+    - You must allow **Port 5000 (TCP)** in your Windows Firewall to accept incoming connections from the phone.
+    - You may also need to allow **mDNS (UDP 5353)** if automatic discovery fails.
 
 ### 🎵 Important: Sound Effects Setup
 
