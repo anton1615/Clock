@@ -22,7 +22,8 @@ namespace clock
             var settingsService = new SettingsService();
             var timer = new WpfTimer();
             var audioService = new WpfAudioService();
-            var mainViewModel = new MainViewModel(settingsService, timer, audioService);
+            var uiService = new WpfUIService();
+            var mainViewModel = new MainViewModel(settingsService, timer, audioService, uiService);
             var mainWindow = new MainWindow();
             mainWindow.DataContext = mainViewModel;
             mainWindow.Show();

@@ -19,6 +19,7 @@ namespace clock.ViewModels
         private readonly PomodoroEngine _engine;
         private readonly ISettingsService _settingsService;
         private readonly IAudioService _audioService;
+        private readonly IUIService? _uiService;
 
         /// <summary>
         /// 番茄鐘引擎實例。
@@ -41,10 +42,11 @@ namespace clock.ViewModels
             }
         }
 
-        public MainViewModel(ISettingsService settingsService, clock.Core.ITimer? timer = null, IAudioService? audioService = null)
+        public MainViewModel(ISettingsService settingsService, clock.Core.ITimer? timer = null, IAudioService? audioService = null, IUIService? uiService = null)
         {
             _settingsService = settingsService;
-            _audioService = audioService ?? new NullAudioService(); // 預設使用不播放聲音的服務
+            _audioService = audioService ?? new NullAudioService(); 
+            _uiService = uiService;
             Settings = AppSettings.Load();
             
             if (Settings.WindowSize < 10 || Settings.WindowSize > 200) 
@@ -121,17 +123,15 @@ namespace clock.ViewModels
         [RelayCommand] private void TogglePhase() => _engine.TogglePhase();
         [RelayCommand] private void TogglePause() => _engine.TogglePause();
         
-        // 注意：Exit 依賴於 Application.Current.Shutdown()，這是 WPF 專有的
-        // 我們應該透過一個 IUIService 來處理
         [RelayCommand] private void Exit() 
         {
-            // 暫時留空或在 WPF 專案中處理
+            _uiService?.ExitApp();
         }
 
         [RelayCommand]
         private void ToggleWidgetVisibility()
         {
-            // 同樣依賴 WPF 的視窗操作，應由 View 層處理
+            _uiService?.ToggleMainWindow();
         }
 
         [RelayCommand]
