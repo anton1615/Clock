@@ -92,5 +92,56 @@ namespace clock.Core
         {
             IsPaused = !IsPaused;
         }
+
+        /// <summary>
+        /// 獲取當前引擎狀態快照。
+        /// </summary>
+        public EngineState GetState()
+        {
+            var now = DateTimeOffset.UtcNow;
+            long targetEndTime = 0;
+
+            if (!IsPaused)
+            {
+                targetEndTime = now.Add(TimeRemaining).ToUnixTimeMilliseconds();
+            }
+
+            return new EngineState
+            {
+                RemainingSeconds = TimeRemaining.TotalSeconds,
+                IsWorkPhase = IsWorkPhase,
+                IsPaused = IsPaused,
+                PhaseName = CurrentPhaseName,
+                TotalDurationSeconds = TotalDuration.TotalSeconds,
+                TargetEndTimeUnix = targetEndTime
+            };
+        }
+
+        /// <summary>
+        /// 從外部狀態更新引擎。
+        /// </summary>
+        /// <param name="state">新的引擎狀態。</param>
+        public void ApplyState(EngineState state)
+        {
+            IsWorkPhase = state.IsWorkPhase;
+            IsPaused = state.IsPaused;
+            CurrentPhaseName = state.PhaseName;
+            _totalDuration = TimeSpan.FromSeconds(state.TotalDurationSeconds);
+            
+            // 如果 TargetEndTimeUnix 有值且未暫停，嘗試校正時間
+            if (!state.IsPaused && state.TargetEndTimeUnix > 0)
+            {
+                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var diff = state.TargetEndTimeUnix - now;
+                TimeRemaining = diff > 0 ? TimeSpan.FromMilliseconds(diff) : TimeSpan.Zero;
+            }
+            else
+            {
+                TimeRemaining = TimeSpan.FromSeconds(state.RemainingSeconds);
+            }
+
+            if (IsPaused) _timer.Stop();
+            else _timer.Start();
+        }
     }
 }
