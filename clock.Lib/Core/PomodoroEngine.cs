@@ -1,5 +1,4 @@
 using System;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using clock.Models;
 
@@ -11,7 +10,7 @@ namespace clock.Core
     public partial class PomodoroEngine : ObservableObject
     {
         private readonly AppSettings _settings;
-        private DispatcherTimer _timer;
+        private readonly ITimer _timer;
 
         [ObservableProperty] private TimeSpan _timeRemaining;
         [ObservableProperty] private bool _isWorkPhase;
@@ -29,11 +28,18 @@ namespace clock.Core
         /// </summary>
         public event Action? OnPhaseCompleted;
 
-        public PomodoroEngine(AppSettings settings)
+        /// <summary>
+        /// 建構番茄鐘引擎。
+        /// </summary>
+        /// <param name="settings">應用程式設定。</param>
+        /// <param name="timer">選用的計時器實作。若為 null 則預設使用 StandardTimer。</param>
+        public PomodoroEngine(AppSettings settings, ITimer? timer = null)
         {
             _settings = settings;
             _isWorkPhase = true;
-            _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            
+            _timer = timer ?? new StandardTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += Timer_Tick;
             
             StartPhase();

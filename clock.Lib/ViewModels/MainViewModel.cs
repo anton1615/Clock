@@ -59,7 +59,7 @@ namespace clock.ViewModels
             }
         }
 
-        public MainViewModel(ISettingsService settingsService)
+        public MainViewModel(ISettingsService settingsService, clock.Core.ITimer? timer = null)
         {
             _settingsService = settingsService;
             Settings = AppSettings.Load();
@@ -71,7 +71,7 @@ namespace clock.ViewModels
 
             UpdateWindowSize();
 
-            _engine = new PomodoroEngine(Settings);
+            _engine = new PomodoroEngine(Settings, timer);
             _engine.OnPhaseCompleted += Engine_OnPhaseCompleted;
             UpdateDisplayTime();
 

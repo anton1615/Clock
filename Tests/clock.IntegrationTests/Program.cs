@@ -18,6 +18,7 @@ namespace clock.IntegrationTests
                 Test_TogglePause();
                 Test_Settings();
                 Test_StartupService();
+                EngineTickingTests.RunTests();
                 Console.WriteLine("All tests passed!");
             }
             catch (Exception ex)

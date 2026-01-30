@@ -20,7 +20,8 @@ namespace clock
             base.OnStartup(e);
 
             var settingsService = new SettingsService();
-            var mainViewModel = new MainViewModel(settingsService);
+            var timer = new WpfTimer();
+            var mainViewModel = new MainViewModel(settingsService, timer);
             var mainWindow = new MainWindow();
             mainWindow.DataContext = mainViewModel;
             mainWindow.Show();
