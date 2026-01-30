@@ -4,11 +4,14 @@ using System.Media;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace clock.Core
+namespace clock.Services
 {
-    public static class AudioHelper
+    /// <summary>
+    /// 使用 Windows System.Media 實作的音效播放服務。
+    /// </summary>
+    public class WpfAudioService : clock.Core.IAudioService
     {
-        public static void PlaySound(string path, double volume)
+        public void Play(string path, double volume)
         {
             Task.Run(() =>
             {
@@ -37,8 +40,6 @@ namespace clock.Core
                     using (var outStream = new MemoryStream())
                     using (var writer = new BinaryWriter(outStream))
                     {
-                        // 1. 複製 Header (簡單假設標準 WAV Header 為 44 bytes)
-                        // 更嚴謹的做法是搜尋 "data" chunk，但為了輕量化先做標準處理
                         int headerSize = 44;
                         
                         // 嘗試尋找 "data" chunk 以支援不同格式
@@ -60,20 +61,15 @@ namespace clock.Core
                         writer.Write(reader.ReadBytes(headerSize));
 
                         // 2. 處理音訊資料 (假設 16-bit PCM)
-                        // 如果不是 16-bit，這段可能會產生雜訊，但在大多數 notify.wav 中是通用的
                         while (ms.Position < ms.Length)
                         {
                             try
                             {
                                 short sample = reader.ReadInt16();
-                                // 調整振幅
                                 sample = (short)(sample * volume);
                                 writer.Write(sample);
                             }
-                            catch (EndOfStreamException) 
-                            { 
-                                break; 
-                            }
+                            catch (EndOfStreamException) { break; }
                         }
 
                         outStream.Position = 0;
@@ -86,7 +82,6 @@ namespace clock.Core
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Audio Error: {ex.Message}");
-                    // 發生任何錯誤 (例如格式不支援)，直接降級播放原始檔案
                     try
                     {
                         using (var player = new SoundPlayer(path))

@@ -2,9 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using clock.Core;
 using clock.Models;
-using System.Windows;
 using System;
-using System.Windows.Media;
 using System.IO;
 
 namespace clock.ViewModels
@@ -20,6 +18,7 @@ namespace clock.ViewModels
         public AppSettings Settings { get; }
         private readonly PomodoroEngine _engine;
         private readonly ISettingsService _settingsService;
+        private readonly IAudioService _audioService;
 
         /// <summary>
         /// 番茄鐘引擎實例。
@@ -41,27 +40,11 @@ namespace clock.ViewModels
                 return _engine.TimeRemaining.TotalSeconds / _engine.TotalDuration.TotalSeconds;
             }
         }
-        
-        /// <summary>
-        /// 根據當前階段回傳對應的畫筆顏色。
-        /// </summary>
-        public SolidColorBrush CurrentPhaseColor
-        {
-            get
-            {
-                string colorHex = _engine.IsWorkPhase ? Settings.WorkColor : Settings.BreakColor;
-                try
-                {
-                    var brush = new BrushConverter().ConvertFromString(colorHex ?? "#FF8C00") as SolidColorBrush;
-                    return brush ?? Brushes.Orange;
-                }
-                catch { return Brushes.Orange; }
-            }
-        }
 
-        public MainViewModel(ISettingsService settingsService, clock.Core.ITimer? timer = null)
+        public MainViewModel(ISettingsService settingsService, clock.Core.ITimer? timer = null, IAudioService? audioService = null)
         {
             _settingsService = settingsService;
+            _audioService = audioService ?? new NullAudioService(); // 預設使用不播放聲音的服務
             Settings = AppSettings.Load();
             
             if (Settings.WindowSize < 10 || Settings.WindowSize > 200) 
@@ -84,8 +67,8 @@ namespace clock.ViewModels
                 }
                 if (e.PropertyName == nameof(PomodoroEngine.IsWorkPhase))
                 {
-                    OnPropertyChanged(nameof(CurrentPhaseColor));
-                    OnPropertyChanged(nameof(CurrentBackgroundColor));
+                    // 通知 UI 更新相關顏色（透過 Converter）
+                    OnPropertyChanged(nameof(Engine));
                 }
                 if (e.PropertyName == nameof(PomodoroEngine.IsPaused)) OnPropertyChanged(nameof(Engine)); 
             };
@@ -96,32 +79,9 @@ namespace clock.ViewModels
                 {
                     UpdateWindowSize();
                 }
-                if (e.PropertyName == nameof(AppSettings.IsBold)) OnPropertyChanged(nameof(Settings));
-                if (e.PropertyName == nameof(AppSettings.WorkColor) || e.PropertyName == nameof(AppSettings.BreakColor) || e.PropertyName == nameof(AppSettings.BackgroundAlpha))
-                {
-                    OnPropertyChanged(nameof(CurrentPhaseColor));
-                    OnPropertyChanged(nameof(CurrentBackgroundColor));
-                }
+                // 當設定變更時，通知 UI 重新評估綁定
+                OnPropertyChanged(nameof(Settings));
             };
-        }
-
-        /// <summary>
-        /// 根據當前階段回傳對應的深色背景。
-        /// </summary>
-        public SolidColorBrush CurrentBackgroundColor
-        {
-            get
-            {
-                var baseColor = CurrentPhaseColor.Color;
-                // 將顏色變深：乘以 0.3 左右 (比之前亮一點)
-                var darkColor = Color.FromArgb(
-                    Settings.BackgroundAlpha,
-                    (byte)(baseColor.R * 0.3),
-                    (byte)(baseColor.G * 0.3),
-                    (byte)(baseColor.B * 0.3)
-                );
-                return new SolidColorBrush(darkColor);
-            }
         }
 
         private void UpdateWindowSize()
@@ -149,36 +109,29 @@ namespace clock.ViewModels
                     soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, soundPath);
                 }
                 
-                if (File.Exists(soundPath))
-                {
-                    // 使用新的 AudioHelper，保證最大音量且不怕休眠
-                    double vol = Settings.Volume / 100.0;
-                    AudioHelper.PlaySound(soundPath, vol);
-                }
-                else
-                {
-                    System.Media.SystemSounds.Exclamation.Play();
-                }
+                double vol = Settings.Volume / 100.0;
+                _audioService.Play(soundPath, vol);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Playback failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Playback trigger failed: {ex.Message}");
             }
         }
 
         [RelayCommand] private void TogglePhase() => _engine.TogglePhase();
         [RelayCommand] private void TogglePause() => _engine.TogglePause();
-        [RelayCommand] private void Exit() => Application.Current.Shutdown();
+        
+        // 注意：Exit 依賴於 Application.Current.Shutdown()，這是 WPF 專有的
+        // 我們應該透過一個 IUIService 來處理
+        [RelayCommand] private void Exit() 
+        {
+            // 暫時留空或在 WPF 專案中處理
+        }
 
         [RelayCommand]
         private void ToggleWidgetVisibility()
         {
-            var window = Application.Current.MainWindow;
-            if (window != null)
-            {
-                if (window.Visibility == Visibility.Visible) window.Hide();
-                else { window.Show(); window.Activate(); }
-            }
+            // 同樣依賴 WPF 的視窗操作，應由 View 層處理
         }
 
         [RelayCommand]

@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:clock.ViewModels;assembly=clock.Lib"
         xmlns:tb="http://www.hardcodet.net/taskbar"
+        xmlns:local="clr-namespace:clock.Converters"
         mc:Ignorable="d"
         Title="Clock" 
         WindowStyle="None"
@@ -20,6 +21,10 @@
 
 
     <Window.Resources>
+        <local:PhaseColorConverter x:Key="PhaseColorConverter"/>
+        <local:HexToBrushConverter x:Key="HexToBrushConverter"/>
+        <local:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
+
         <Style x:Key="BlinkingTextStyle" TargetType="TextBlock">
             <Setter Property="Opacity" Value="1.0"/>
             <Style.Triggers>
@@ -87,9 +92,14 @@
             <!-- 畫布高度微調至 125，更緊湊 -->
             <Border Width="350" Height="125"
                     CornerRadius="25" 
-                    Background="{Binding CurrentBackgroundColor}"
                     Padding="15,0,15,0" 
                     MouseLeftButtonDown="BackgroundBorder_MouseLeftButtonDown">
+                <Border.Background>
+                    <MultiBinding Converter="{StaticResource PhaseColorConverter}" ConverterParameter="Background">
+                        <Binding Path="Engine"/>
+                        <Binding Path="Settings"/>
+                    </MultiBinding>
+                </Border.Background>
 
                 <Grid>
                     <Grid.RowDefinitions>
@@ -108,8 +118,8 @@
                                    Text="{Binding DisplayTime}" 
                                    FontSize="90" 
                                    FontFamily="{Binding Settings.FontFamily}"
-                                   Foreground="{Binding Settings.TextColorBrush}"
-                                   FontWeight="{Binding Settings.SelectedFontWeight}"
+                                   Foreground="{Binding Settings.TextColor, Converter={StaticResource HexToBrushConverter}}"
+                                   FontWeight="{Binding Settings.IsBold, Converter={StaticResource BoolToFontWeightConverter}}"
                                    Style="{StaticResource BlinkingTextStyle}"
                                    VerticalAlignment="Center"
                                    HorizontalAlignment="Center"
@@ -122,9 +132,9 @@
                                 PreviewMouseLeftButtonDown="Button_PreviewMouseLeftButtonDown"
                                 Width="60"
                                 Height="60"
-                                Foreground="{Binding Settings.TextColorBrush}"
+                                Foreground="{Binding Settings.TextColor, Converter={StaticResource HexToBrushConverter}}"
                                 Background="Transparent" 
-                                BorderBrush="{Binding Settings.TextColorBrush}"
+                                BorderBrush="{Binding Settings.TextColor, Converter={StaticResource HexToBrushConverter}}"
                                 BorderThickness="2"
                                 Cursor="Hand"
                                 VerticalAlignment="Center">
@@ -170,10 +180,16 @@
                                                  Maximum="1.0"
                                                  Minimum="0.0"
                                                  Height="16"
-                                                 Foreground="{Binding CurrentPhaseColor}"
                                                  Style="{StaticResource FlatProgressBarStyle}"
                                                  VerticalAlignment="Center"
-                                                 IsHitTestVisible="False"/>
+                                                 IsHitTestVisible="False">
+                                        <ProgressBar.Foreground>
+                                            <MultiBinding Converter="{StaticResource PhaseColorConverter}">
+                                                <Binding Path="Engine"/>
+                                                <Binding Path="Settings"/>
+                                            </MultiBinding>
+                                        </ProgressBar.Foreground>
+                                    </ProgressBar>
                                 </Grid>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
