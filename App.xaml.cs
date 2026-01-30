@@ -24,6 +24,15 @@ namespace clock
             var audioService = new WpfAudioService();
             var uiService = new WpfUIService();
             var mainViewModel = new MainViewModel(settingsService, timer, audioService, uiService);
+
+            // 啟動同步伺服器
+            var syncServer = new SyncServerService(mainViewModel.Engine);
+            syncServer.Start();
+
+            // 啟動 mDNS 廣播
+            var mdns = new MdnsService(Environment.MachineName);
+            mdns.Start();
+
             var mainWindow = new MainWindow();
             mainWindow.DataContext = mainViewModel;
             mainWindow.Show();

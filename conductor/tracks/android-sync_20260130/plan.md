@@ -18,13 +18,13 @@
 
 #### Phase 2: PC 端通訊服務實作 (Server & mDNS)
 *本階段目標是讓 PC 具備「被發現」與「同步數據」的能力。*
-- [ ] Task: 整合 SignalR Hub 伺服器
-    - [ ] 在 WPF 專案中啟動輕量級 WebHost 並建立 ClockHub。
-    - [ ] 實作指令接收邏輯 (TogglePause, TogglePhase, Skip)。
-- [ ] Task: 實作 mDNS 服務宣告
-    - [ ] 整合 Makaretu.Dns 套件，在網路中廣播 _clock._tcp.local。
-- [ ] Task: 狀態推送機制
-    - [ ] 串接 PomodoroEngine 的變更事件，即時透過 SignalR 推送到所有客戶端。
+- [x] Task: 整合 SignalR Hub 伺服器
+    - [x] 在 WPF 專案中啟動輕量級 WebHost 並建立 ClockHub。
+    - [x] 實作指令接收邏輯 (TogglePause, TogglePhase, Skip)。
+- [x] Task: 實作 mDNS 服務宣告
+    - [x] 整合 Makaretu.Dns 套件，在網路中廣播 _clock._tcp.local。
+- [x] Task: 狀態推送機制
+    - [x] 串接 PomodoroEngine 的變更事件，即時透過 SignalR 推送到所有客戶端。
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: PC Communication' (Protocol in workflow.md)
 
 #### Phase 3: Android (MAUI) 客戶端開發
