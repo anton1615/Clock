@@ -52,13 +52,13 @@ jobs:
         run: chmod +x clock-android/gradlew
 
       - name: Build with Gradle
-        run: cd clock-android && ./gradlew assembleRelease
+        run: cd clock-android && ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: android-release
-          path: clock-android/app/build/outputs/apk/release/*.apk
+          path: clock-android/app/build/outputs/apk/debug/*.apk
 
   create-release:
     needs: [build-windows, build-android]
