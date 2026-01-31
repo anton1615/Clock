@@ -73,6 +73,7 @@ class MainActivity : ComponentActivity() {
             
             var showSetup by remember { mutableStateOf(false) }
 
+            // 同步狀態處理
             LaunchedEffect(connectionState) {
                 engine.setSyncStatus(connectionState == HubConnectionState.CONNECTED)
                 if (connectionState == HubConnectionState.CONNECTED) {
@@ -81,6 +82,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // 自動搜尋
             LaunchedEffect(showSetup, connectionState) {
                 if (showSetup && connectionState == HubConnectionState.DISCONNECTED) {
                     while (isActive) {
@@ -224,7 +226,7 @@ fun SetupScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
-        Text("Nearby Devices (Auto)", color = Color.White, fontWeight = FontWeight.Bold)
+        Text("Auto-Discovery", color = Color.White, fontWeight = FontWeight.Bold)
         
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 8.dp)) {
             items(devices) { device ->
@@ -310,7 +312,7 @@ fun TimerScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Canvas(modifier = Modifier.size(24.dp)) {
+                        Canvas(modifier = Modifier.size(20.dp)) {
                             if (isPaused) {
                                 val path = Path().apply {
                                     moveTo(6.dp.toPx(), 2.dp.toPx())
