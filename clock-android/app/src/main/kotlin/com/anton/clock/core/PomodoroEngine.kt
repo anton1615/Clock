@@ -77,9 +77,8 @@ class PomodoroEngine(
 
     fun applyState(state: EngineState) {
         lastState = state
-        _isWorkPhase.value = state.isWorkPhase
-        _isPaused.value = state.isPaused
         
+        // 1. 先計算時間偏差與補償
         if (!state.isPaused && state.targetEndTimeUnix > 0) {
             val now = System.currentTimeMillis()
             // 將補償值提高到 150ms 以趕上電腦
@@ -93,7 +92,19 @@ class PomodoroEngine(
                     clockOffsetRolling = (1 - smoothingFactor) * clockOffsetRolling!! + smoothingFactor * currentInstantOffset
                 }
             }
+
+            // 2. 立即更新 remainingSeconds，確保 UI/Notification 讀取到最新值
+            val adjustedNow = now.toDouble() + (clockOffsetRolling ?: 0.0)
+            val diff = state.targetEndTimeUnix.toDouble() - adjustedNow
+            _remainingSeconds.value = if (diff > 0) (diff / 1000.0) else 0.0
+        } else {
+            // 暫停狀態或無目標時間，直接使用 State 數值
+            _remainingSeconds.value = state.remainingSeconds
         }
+
+        // 3. 最後更新狀態旗標 (觸發 TimerService 的監聽器)
+        _isWorkPhase.value = state.isWorkPhase
+        _isPaused.value = state.isPaused
     }
 
     fun localTogglePause() { _isPaused.value = !_isPaused.value }

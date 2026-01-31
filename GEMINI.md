@@ -2,9 +2,9 @@
 
 ## 專案現況
 - **專案名稱**: Clock
-- **目前版本**: v1.1.3 (Security & Privacy Hardening)
+- **目前版本**: v1.1.4 (Notification Fixes)
 - **核心技術**: .NET 10, WPF, Android Native (Kotlin + Compose), SignalR, mDNS
-- **開發日期**: 2026-01-31
+- **開發日期**: 2026-02-01
 
 ## 專案結構
 - clock: WPF 視圖層、通訊服務器實作與程式入口。支援 WinExe 模式與動態控制台分配。
@@ -37,6 +37,8 @@
    - **防禦性程式碼**: 加入 Hex 顏色格式驗證，防止因設定錯誤導致的啟動閃退。
    - **隱私控制**: Android 通知可見性調為 `PRIVATE`，保護鎖屏資訊。
    - **資源回收**: Android 端連線後自動停止 mDNS 掃描，節省電力與 WiFi 資源。
+7. **穩定性修正 (v1.1.4)**:
+   - **Android 通知倒數修正**: 解決切換階段時，因狀態更新順序問題導致通知欄 Chronometer 顯示負數 (倒數至 0 後繼續倒數) 的 Bug。現在 `PomodoroEngine` 會確保在發送狀態變更事件前，先更新剩餘時間。
 
 ## 重要技術決策
 - **核心抽象化**: 將計時器 (ITimer)、音效 (IAudioService) 與 UI 控制 (IUIService) 介面化，確保 clock.Lib 可跨平台重用。
