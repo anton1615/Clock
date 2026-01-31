@@ -54,11 +54,33 @@ import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.URL
 
+import androidx.compose.material.icons.filled.Settings
+import com.anton.clock.core.SettingsRepository
+import com.anton.clock.models.AppSettings
+import com.anton.clock.ui.SettingsScreen
+import android.view.WindowManager
+
+import android.media.RingtoneManager
+import android.net.Uri
+
 class MainActivity : ComponentActivity() {
     private var timerService: TimerService? = null
     private var isBound by mutableStateOf(false)
     
     private lateinit var mdnsScanner: MdnsScanner
+    private lateinit var settingsRepository: SettingsRepository
+
+    private val ringtonePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val uri: Uri? = result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            val newSettings = currentSettings.copy(soundUri = uri?.toString() ?: "silent")
+            settingsRepository.saveSettings(newSettings)
+            currentSettings = newSettings
+            applyEngineSettings()
+        }
+    }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -73,6 +95,7 @@ class MainActivity : ComponentActivity() {
             val binder = service as TimerService.TimerBinder
             timerService = binder.getService()
             isBound = true
+            applyEngineSettings()
         }
 
         override fun onServiceDisconnected(arg0: ComponentName) {
@@ -81,10 +104,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var currentSettings by mutableStateOf(AppSettings())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mdnsScanner = MdnsScanner(this)
+        settingsRepository = SettingsRepository(this)
+        currentSettings = settingsRepository.getSettings()
         
+        applyKeepScreenOn(currentSettings.keepScreenOn)
+
         // 請求通知權限 (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -112,6 +141,7 @@ class MainActivity : ComponentActivity() {
                 val localIp = remember { getLocalIpAddress() }
                 
                 var showSetup by remember { mutableStateOf(false) }
+                var showSettings by remember { mutableStateOf(false) }
 
                 // 同步狀態處理：連線成功後自動收起設定頁
                 LaunchedEffect(connectionState) {
@@ -138,7 +168,9 @@ class MainActivity : ComponentActivity() {
                                 engine = service.engine, 
                                 network = service.signalRManager,
                                 isSynced = connectionState == HubConnectionState.CONNECTED,
-                                onOpenSetup = { showSetup = true }
+                                settings = currentSettings,
+                                onOpenSetup = { showSetup = true },
+                                onOpenSettings = { showSettings = true }
                             )
 
                             AnimatedVisibility(
@@ -165,6 +197,37 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             }
+
+                            AnimatedVisibility(
+                                visible = showSettings,
+                                enter = slideInHorizontally(initialOffsetX = { it }),
+                                exit = slideOutHorizontally(targetOffsetX = { it })
+                            ) {
+                                SettingsScreen(
+                                    currentSettings = currentSettings,
+                                    isSynced = connectionState == HubConnectionState.CONNECTED,
+                                    onSave = { newSettings ->
+                                        if (newSettings.soundUri == "PICK_SOUND") {
+                                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+                                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Notification Sound")
+                                                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, 
+                                                    if (currentSettings.soundUri != "default" && currentSettings.soundUri != "silent") Uri.parse(currentSettings.soundUri) else null)
+                                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                                            }
+                                            ringtonePickerLauncher.launch(intent)
+                                        } else {
+                                            settingsRepository.saveSettings(newSettings)
+                                            currentSettings = newSettings
+                                            applyEngineSettings()
+                                            applyKeepScreenOn(newSettings.keepScreenOn)
+                                            showSettings = false
+                                        }
+                                    },
+                                    onBack = { showSettings = false }
+                                )
+                            }
                         }
                     }
                 }
@@ -174,6 +237,20 @@ class MainActivity : ComponentActivity() {
                     CircularProgressIndicator(color = Color(0xFFFF8C00))
                 }
             }
+        }
+    }
+
+    private fun applyEngineSettings() {
+        timerService?.let { service ->
+            service.updateSettings(currentSettings)
+        }
+    }
+
+    private fun applyKeepScreenOn(enabled: Boolean) {
+        if (enabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
@@ -295,7 +372,9 @@ fun TimerScreen(
     engine: PomodoroEngine, 
     network: SignalRManager, 
     isSynced: Boolean,
-    onOpenSetup: () -> Unit
+    settings: AppSettings,
+    onOpenSetup: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val remainingSeconds by engine.remainingSeconds.collectAsState()
     val isWorkPhase by engine.isWorkPhase.collectAsState()
@@ -305,7 +384,9 @@ fun TimerScreen(
     val seconds = (remainingSeconds % 60).toInt()
     val timeStr = String.format("%02d:%02d", minutes, seconds)
     
-    val themeColor = if (isWorkPhase) Color(0xFFFF8C00) else Color(0xFF32CD32)
+    val themeColorHex = if (isWorkPhase) settings.workColor else settings.breakColor
+    val themeColor = Color(android.graphics.Color.parseColor(themeColorHex))
+    
     val totalDuration = (if (isWorkPhase) engine.workDurationMinutes else engine.breakDurationMinutes) * 60.0
     val progress = if (totalDuration > 0) (remainingSeconds / totalDuration).toFloat() else 1f
 
@@ -319,6 +400,10 @@ fun TimerScreen(
             }
             IconButton(onClick = onOpenSetup, modifier = Modifier.size(32.dp)) {
                 Icon(imageVector = Icons.Default.Refresh, contentDescription = "Sync", tint = if (isSynced) Color.Green else Color.Gray)
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(onClick = onOpenSettings, modifier = Modifier.size(32.dp)) {
+                Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
             }
         }
 

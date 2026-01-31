@@ -14,8 +14,10 @@ Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 ## 🚀 New in v1.1.1: Background Service & CI/CD Release
 
 *   **Background Sync**: Android app now stays connected in the background using a Foreground Service.
-*   **Notification Countdown**: Real-time countdown (MM:SS) directly in your Android notification bar with stage-specific accent colors.
-*   **System Audio Integration**: Android client automatically uses your phone's default notification sound—no external files required.
+*   **Notification Countdown**: Real-time countdown (MM:SS) directly in your Android notification bar with stage-specific accent colors and "Public" visibility for lock screens.
+*   **Local Settings (Android)**: Customize Work/Break durations and accent colors directly on your phone.
+*   **Keep Screen On**: Option to prevent Android devices from sleeping while the app is in focus.
+*   **System Audio Integration**: Android client automatically uses your phone's default notification sound—or choose any system ringtone via the new settings menu.
 *   **Console Toggle**: PC users can now hide/show the developer console window via the Settings GUI.
 *   **Automated APK Builds**: GitHub Actions now provides both `.exe` and `.apk` in the Release section.
 

@@ -21,19 +21,18 @@ jobs:
         run: dotnet restore
 
       - name: Publish App
-        # Using PublishSingleFile and disabling PDB for a clean distribution
-        run: dotnet publish clock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:CopyOutputSymbolsToPublishDirectory=false -o publish
+        # Remove PDBs, enable compression, and ensure single file output
+        run: dotnet publish clock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:CopyOutputSymbolsToPublishDirectory=false -p:DebugType=None -p:DebugSymbols=false -p:EnableCompressionInSingleFile=true -o publish
 
-      - name: Zip Release
+      - name: Rename EXE for release
         shell: pwsh
-        run: |
-          Compress-Archive -Path publish/* -DestinationPath clock.zip
+        run: mv publish/clock.exe ./clock-win-x64.exe
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
-          path: clock.zip
+          path: clock-win-x64.exe
 
   build-android:
     runs-on: ubuntu-latest
@@ -89,7 +88,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            clock.zip
+            clock-win-x64.exe
             clock.apk
           name: Release ${{ github.ref_name }}
           body: |
@@ -98,10 +97,9 @@ jobs:
             Automatic build by GitHub Actions for multiple platforms.
             
             ### Windows Installation
-            1. Download `clock.zip`.
-            2. Extract to a folder.
-            3. **Important**: Add your notification sound as `Assets/notify.wav`.
-            4. Run `clock.exe`.
+            1. Download `clock-win-x64.exe`.
+            2. **Important**: Place it in a folder. If you want sounds, add your notification sound as `Assets/notify.wav` in the same folder.
+            3. Run the `.exe`.
             
             ### Android Installation
             1. Download `clock.apk`.

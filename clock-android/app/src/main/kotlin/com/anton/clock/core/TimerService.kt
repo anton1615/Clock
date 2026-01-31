@@ -4,6 +4,7 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -16,6 +17,8 @@ import com.microsoft.signalr.HubConnectionState
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 
+import com.anton.clock.models.AppSettings
+
 class TimerService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val binder = TimerBinder()
@@ -23,8 +26,11 @@ class TimerService : Service() {
     val signalRManager = SignalRManager()
     val engine = PomodoroEngine()
     
+    private lateinit var settingsRepository: SettingsRepository
+    private var currentSettings = AppSettings()
+    
     private var isBound = false
-    private val CHANNEL_ID = "clock_sync_channel"
+    private val CHANNEL_ID = "clock_sync_channel_v3" // 更新 ID
     private val NOTIFICATION_ID = 888
 
     inner class TimerBinder : Binder() {
@@ -43,8 +49,14 @@ class TimerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        settingsRepository = SettingsRepository(this)
+        currentSettings = settingsRepository.getSettings()
+        
         createNotificationChannel()
         engine.start()
+        
+        // 套用初始設定
+        engine.updateDurations(currentSettings.workDuration, currentSettings.breakDuration)
         
         // 監聽 SignalR 狀態與引擎狀態
         serviceScope.launch {
@@ -64,13 +76,6 @@ class TimerService : Service() {
         serviceScope.launch {
             engine.isWorkPhase.collect { isWork ->
                 if (isWork != lastPhase) {
-                    val remaining = engine.remainingSeconds.value
-                    // 如果剩餘時間接近 0 (或是剛重置後的新時間)，且是自動跳轉，才播放音效
-                    // 這裡邏輯改為：如果剩餘時間大於某個門檻(代表是手動切換後的新時間)，且跳轉前時間很小，才播放
-                    // 實際上最準確的是檢查切換瞬間的 remainingSeconds 是否接近 0
-                    if (engine.remainingSeconds.value > 10.0) { // 代表已經重置為新階段的時間了
-                         // 這裡無法得知切換前的精確時間，改用另一種邏輯
-                    }
                     updateNotification()
                     lastPhase = isWork
                 }
@@ -93,15 +98,32 @@ class TimerService : Service() {
         serviceScope.launch {
             engine.isPaused.collectLatest { updateNotification() }
         }
+
+        serviceScope.launch {
+            engine.isSynced.collectLatest { updateNotification() }
+        }
         
         // 啟動前台服務
         startForeground(NOTIFICATION_ID, createNotification())
     }
 
+    fun updateSettings(newSettings: AppSettings) {
+        currentSettings = newSettings
+        engine.updateDurations(newSettings.workDuration, newSettings.breakDuration)
+        updateNotification()
+    }
+
     private fun playDefaultNotificationSound() {
+        val soundUriStr = currentSettings.soundUri
+        if (soundUriStr == "silent" || soundUriStr == null) return
+        
         try {
-            val notificationUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val ringtone = RingtoneManager.getRingtone(applicationContext, notificationUri)
+            val uri = if (soundUriStr == "default") {
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            } else {
+                Uri.parse(soundUriStr)
+            }
+            val ringtone = RingtoneManager.getRingtone(applicationContext, uri)
             ringtone.play()
         } catch (e: Exception) {
             Log.e("TimerService", "Failed to play notification sound", e)
@@ -112,10 +134,11 @@ class TimerService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = "Clock Synchronization"
             val descriptionText = "Displays real-time countdown from PC"
-            val importance = NotificationManager.IMPORTANCE_LOW
+            val importance = NotificationManager.IMPORTANCE_DEFAULT // 改為 DEFAULT 以移除頂部橫幅
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
                 setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
@@ -133,33 +156,57 @@ class TimerService : Service() {
 
         val isWork = engine.isWorkPhase.value
         val isPaused = engine.isPaused.value
+        val isSynced = engine.isSynced.value
+        
         val phaseName = if (isWork) "WORKING" else "BREAKING"
-        val accentColor = if (isWork) 0xFFFF8C00.toInt() else 0xFF32CD32.toInt()
+        val statusText = buildString {
+            if (isPaused) append("PAUSED") else append("RUNNING")
+            if (isSynced) append(" • SYNCED")
+        }
+        
+        val baseColorHex = if (isWork) currentSettings.workColor else currentSettings.breakColor
+        val baseColor = android.graphics.Color.parseColor(baseColorHex)
+        val darkenedColor = darkenColor(baseColor, 0.3f) 
         
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info) 
-            .setContentTitle(if (isPaused) "$phaseName (PAUSED)" else phaseName)
-            .setContentText("Syncing with PC...")
-            .setColor(accentColor)
+            .setContentTitle(phaseName)
+            .setContentText(statusText)
+            .setColor(darkenedColor)
             .setColorized(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // 改為 DEFAULT
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS) // 改為 PROGRESS
 
-        // 倒數計時邏輯 (Chronometer)
+        // 倒數計時邏輯 (使用 Wall Clock Timebase)
         if (!isPaused) {
             val remainingMillis = (engine.remainingSeconds.value * 1000.0).toLong()
-            val targetTime = SystemClock.elapsedRealtime() + remainingMillis
+            val targetTime = System.currentTimeMillis() + remainingMillis 
             builder.setUsesChronometer(true)
             builder.setChronometerCountDown(true)
             builder.setWhen(targetTime)
         } else {
             builder.setUsesChronometer(false)
+            val mins = (engine.remainingSeconds.value / 60).toInt()
+            val secs = (engine.remainingSeconds.value % 60).toInt()
+            builder.setContentText("$statusText • ${String.format("%02d:%02d", mins, secs)}")
         }
 
         return builder.build()
+    }
+
+    private fun darkenColor(color: Int, factor: Float): Int {
+        val a = android.graphics.Color.alpha(color)
+        val r = Math.round(android.graphics.Color.red(color) * factor)
+        val g = Math.round(android.graphics.Color.green(color) * factor)
+        val b = Math.round(android.graphics.Color.blue(color) * factor)
+        return android.graphics.Color.argb(a,
+            Math.min(r, 255),
+            Math.min(g, 255),
+            Math.min(b, 255))
     }
 
     fun updateNotification() {

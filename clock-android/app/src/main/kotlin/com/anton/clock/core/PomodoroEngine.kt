@@ -19,12 +19,22 @@ class PomodoroEngine(
     private val _isPaused = MutableStateFlow(true) 
     val isPaused = _isPaused.asStateFlow()
 
+    private val _isSynced = MutableStateFlow(false)
+    val isSynced = _isSynced.asStateFlow()
+
+    private var nextWorkMins: Int = workDurationMinutes
+    private var nextBreakMins: Int = breakDurationMinutes
+
+    fun updateDurations(work: Int, breakM: Int) {
+        nextWorkMins = work
+        nextBreakMins = breakM
+    }
+
     private var timerJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Default)
     
     private var clockOffsetRolling: Double? = null
     private val smoothingFactor = 0.15 // 降低一點權重，更穩定
-    private var isSynced: Boolean = false
     private var lastState: EngineState? = null
 
     fun start() {
@@ -37,7 +47,7 @@ class PomodoroEngine(
                 
                 val now = System.currentTimeMillis()
                 
-                if (isSynced && lastState != null) {
+                if (_isSynced.value && lastState != null) {
                     val state = lastState!!
                     if (!state.isPaused && state.targetEndTimeUnix > 0) {
                         val adjustedNow = now.toDouble() + (clockOffsetRolling ?: 0.0)
@@ -58,7 +68,7 @@ class PomodoroEngine(
     }
 
     fun setSyncStatus(synced: Boolean) {
-        isSynced = synced
+        _isSynced.value = synced
         if (!synced) {
             clockOffsetRolling = null
             lastState = null
@@ -93,6 +103,8 @@ class PomodoroEngine(
     }
 
     fun reset() {
+        workDurationMinutes = nextWorkMins
+        breakDurationMinutes = nextBreakMins
         val mins = if (_isWorkPhase.value) workDurationMinutes else breakDurationMinutes
         _remainingSeconds.value = mins * 60.0
         _isPaused.value = true
