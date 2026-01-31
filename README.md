@@ -2,16 +2,24 @@
 
 ![Made with Google Gemini](https://img.shields.io/badge/AI--Generated_by_Google_Gemini-8E75B2)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg) 
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Android-lightgrey.svg)
 
 <p align="center">
   <img src="screenshot.png" alt="Clock Screenshot">
 </p>
 
-A minimalist, unobtrusive Pomodoro timer widget for Windows, built with .NET 10 and WPF.
-Designed to stay out of your way while keeping you focused.
+A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
+Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
-## Features
+## 🚀 New in v1.1.0: Android Sync
+
+*   **Real-time Sync**: Synchronize time, phase (Work/Break), and pause status between PC and Phone.
+*   **Automatic Discovery**: Uses mDNS to automatically find your PC on the local network.
+*   **Tailscale Support**: Full compatibility with Tailscale VPN for syncing across different networks.
+*   **High-Precision Engine**: Both PC and Mobile now use UTC timestamp-based calculations to eliminate clock drift.
+*   **Standalone Mode**: App automatically degrades to a standalone timer when disconnected.
+
+## ✨ Features
 
 *   **Minimalist Widget**: Frameless window that sits quietly on your desktop.
 *   **Always Visible**: Smart positioning logic ensures it stays on top of your taskbar but doesn't block your work.
@@ -21,23 +29,21 @@ Designed to stay out of your way while keeping you focused.
 *   **Visual Feedback**: Progress bar and buttons highlight on hover to indicate interactability.
 *   **Hacker-Friendly Config**: Customize colors, fonts, and behavior via `setting.json` or a comprehensive graphical interface.
 *   **Modern Settings GUI**: Intuitive color pickers, font family dropdown, and audio file browser.
-*   **Android Sync (New!)**: Real-time synchronization with an Android companion app via LAN or Tailscale.
 *   **Run at Startup**: Option to automatically start with Windows.
+*   **Android Mobile UI**: Circular progress bar design with native touch controls.
 
-## Installation & Setup
+## 🛠 Installation & Setup
 
-1.  Download the latest release (or build from source).
-2.  Run `clock.exe`.
+### 🖥 Windows (Host)
+1. Download the latest release (or build from source).
+2. Run `clock.exe`.
+3. **Firewall Note**: Ensure **Port 8888 (TCP)** is allowed. 
+   - *Pro Tip*: If your network is set to "Public", you must manually enable the "Public" profile in Windows Advanced Firewall settings for the app.
 
-### 📱 Android Synchronization (BETA)
-
-The Windows version now includes a built-in server for real-time syncing with an Android device.
-
-*   **How it works**: Uses mDNS for automatic discovery and SignalR for sub-100ms synchronization.
-*   **Network Requirement**: Both devices must be on the same **Local Area Network (LAN)** or connected via **Tailscale**.
-*   **Firewall Setup**: 
-    - You must allow **Port 5000 (TCP)** in your Windows Firewall to accept incoming connections from the phone.
-    - You may also need to allow **mDNS (UDP 5353)** if automatic discovery fails.
+### 📱 Android (Client)
+1. Build the `clock-android` project using Android Studio and install the APK.
+2. Ensure your phone is on the same Wi-Fi or connected via Tailscale.
+3. Tap the **Sync icon** (top right) and select your PC from the list, or enter the IP manually.
 
 ### 🎵 Important: Sound Effects Setup
 
@@ -49,15 +55,9 @@ To respect copyright laws, **this repository does not include sound files**. You
     *   *Alternatively*, use the **"Browse..." button** in the Settings GUI to select any `.wav` file on your computer.
     *   *Config file*: You can also specify a custom path in `setting.json`.
 
-## Configuration (`setting.json`)
+## ⚙️ Configuration (`setting.json`)
 
-On the first run, a `setting.json` file will be generated in the application directory. You can edit this file manually or right-click the system tray icon and select "Settings" to open the graphical configuration interface.
-
-The **Settings GUI** now features:
-*   **Visual Color Pickers**: Select colors from a palette with live previews.
-*   **Font Family Dropdown**: Choose from all installed system fonts.
-*   **File Browser**: Easily pick your notification sound file.
-*   **Startup Toggle**: One-click to enable or disable "Run at Startup".
+On the first run, a `setting.json` file will be generated in the application directory. You can edit this file manually or right-click the system tray icon and select "Settings".
 
 ### Config Properties:
 
@@ -66,39 +66,36 @@ The **Settings GUI** now features:
   "WorkDuration": 25,          // Minutes
   "BreakDuration": 5,           // Minutes
   "BackgroundAlpha": 200,      // 0-255 (Transparency)
-  "WindowSize": 50,            // Widget size (scales with current position anchor)
+  "WindowSize": 50,            // Widget size
   "FontFamily": "Segoe UI",
   "TextColor": "White",
   "IsBold": true,
   "Volume": 50,                // 0-100
   "WorkColor": "#FF8C00",      // Hex color
   "BreakColor": "#32CD32",
-  "SoundPath": "Assets/notify.wav", // Path to your sound file
-  "IsStartupEnabled": false     // Run at startup status
+  "SoundPath": "Assets/notify.wav",
+  "IsStartupEnabled": false
 }
 ```
 
-## Development
+## 🏗 Architecture & Development
+
+### Project Structure
+*   **`clock.Lib`**: Core Pomodoro logic, purely .NET 10 (UI-independent).
+*   **`clock`**: Windows WPF view layer and SignalR Host (Port 8888).
+*   **`clock-android`**: Native Android app using Jetpack Compose and SignalR Kotlin Client.
 
 ### Requirements
 *   .NET 10 SDK
-*   Visual Studio 2022 (or later) / VS Code
+*   Visual Studio 2022 / VS Code
+*   Android Studio (for mobile app)
 
 ### Build
 ```bash
 dotnet build
 ```
 
-### Architecture
-This project follows a strict **MVVM** architecture with **Dependency Injection**:
-*   `clock`: The WPF executable (Views, Composition Root).
-*   `clock.Lib`: Core logic, Models, and ViewModels (UI-agnostic).
-*   `Tests`: Integration tests ensuring core stability.
+## 📜 License & Credits
 
-## License & Credits
-
-This project is licensed under the [MIT License](LICENSE).
-
-*   **Code & Architecture**: Generated by **Google Gemini** (AI).
-*   **App Icon**: AI-Generated.
-*   **Concept**: A simplified, widget-style Pomodoro timer for Windows.
+MIT License. Created by **Google Gemini** (AI).
+Concept: A simplified, synchronized Pomodoro timer for multi-device focus.
