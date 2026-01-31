@@ -116,7 +116,9 @@
             <TextBlock Text="Notification Volume"/>
             <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Margin="0,0,0,10"/>
 
-            <CheckBox x:Name="StartupCheck" Content="Run at Startup" Margin="0,0,0,20" FontWeight="Bold"/>
+            <CheckBox x:Name="StartupCheck" Content="Run at Startup" Margin="0,0,0,10" FontWeight="Bold"/>
+
+            <CheckBox x:Name="ConsoleCheck" Content="Show Developer Console (CMD)" Margin="0,0,0,20" FontWeight="Bold"/>
 
             <Button Content="Save &amp; Close" Click="Save_Click" Height="40" Background="#007ACC" Foreground="White" FontWeight="Bold"/>
         </StackPanel>

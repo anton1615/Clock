@@ -25,6 +25,7 @@ namespace clock.Models
         [ObservableProperty] private string _breakColor = "#32CD32";
         [ObservableProperty] private string _soundPath = "Assets/notify.wav";
         [ObservableProperty] private bool _isStartupEnabled = false;
+        [ObservableProperty] private bool _showConsole = true;
 
         private static readonly string _filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "setting.json");
 

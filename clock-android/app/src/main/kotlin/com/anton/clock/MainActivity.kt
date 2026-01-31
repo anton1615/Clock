@@ -1,13 +1,19 @@
 package com.anton.clock
 
+import android.Manifest
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import android.os.IBinder
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,29 +22,27 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.anton.clock.core.MdnsScanner
 import com.anton.clock.core.PomodoroEngine
 import com.anton.clock.core.SignalRManager
+import com.anton.clock.core.TimerService
 import com.microsoft.signalr.HubConnectionState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -51,86 +55,123 @@ import java.net.NetworkInterface
 import java.net.URL
 
 class MainActivity : ComponentActivity() {
-    private val engine = PomodoroEngine()
+    private var timerService: TimerService? = null
+    private var isBound by mutableStateOf(false)
+    
     private lateinit var mdnsScanner: MdnsScanner
-    private val signalRManager = SignalRManager()
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (!isGranted) {
+            Toast.makeText(this, "Notification permission is required for background sync.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(className: ComponentName, service: IBinder) {
+            val binder = service as TimerService.TimerBinder
+            timerService = binder.getService()
+            isBound = true
+        }
+
+        override fun onServiceDisconnected(arg0: ComponentName) {
+            isBound = false
+            timerService = null
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mdnsScanner = MdnsScanner(this)
-        engine.start()
+        
+        // 請求通知權限 (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // 啟動並綁定服務
+        Intent(this, TimerService::class.java).also { intent ->
+            startService(intent)
+            bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        }
         
         val prefs = getSharedPreferences("clock_prefs", Context.MODE_PRIVATE)
         val savedIp = prefs.getString("last_pc_ip", "") ?: ""
 
         setContent {
-            val context = LocalContext.current
-            val scope = rememberCoroutineScope()
-            val discoveredServices by mdnsScanner.discoveredServices.collectAsState()
-            val connectionState by signalRManager.connectionState.collectAsState()
-            val remoteState by signalRManager.lastState.collectAsState()
-            val localIp = remember { getLocalIpAddress() }
-            
-            var showSetup by remember { mutableStateOf(false) }
+            if (isBound && timerService != null) {
+                val service = timerService!!
+                val context = LocalContext.current
+                val scope = rememberCoroutineScope()
+                
+                val discoveredServices by mdnsScanner.discoveredServices.collectAsState()
+                val connectionState by service.signalRManager.connectionState.collectAsState()
+                val localIp = remember { getLocalIpAddress() }
+                
+                var showSetup by remember { mutableStateOf(false) }
 
-            // 同步狀態處理
-            LaunchedEffect(connectionState) {
-                engine.setSyncStatus(connectionState == HubConnectionState.CONNECTED)
-                if (connectionState == HubConnectionState.CONNECTED) {
-                    delay(500)
-                    showSetup = false
-                }
-            }
-
-            // 自動搜尋
-            LaunchedEffect(showSetup, connectionState) {
-                if (showSetup && connectionState == HubConnectionState.DISCONNECTED) {
-                    while (isActive) {
-                        mdnsScanner.startScan()
-                        delay(8000)
+                // 同步狀態處理：連線成功後自動收起設定頁
+                LaunchedEffect(connectionState) {
+                    if (connectionState == HubConnectionState.CONNECTED) {
+                        delay(500)
+                        showSetup = false
                     }
                 }
-            }
 
-            LaunchedEffect(remoteState) {
-                remoteState?.let { engine.applyState(it) }
-            }
-
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF121212)) {
-                    Box {
-                        TimerScreen(
-                            engine = engine, 
-                            network = signalRManager,
-                            isSynced = connectionState == HubConnectionState.CONNECTED,
-                            onOpenSetup = { showSetup = true }
-                        )
-
-                        AnimatedVisibility(
-                            visible = showSetup,
-                            enter = slideInVertically(initialOffsetY = { it }),
-                            exit = slideOutVertically(targetOffsetY = { it })
-                        ) {
-                            SetupScreen(
-                                state = connectionState,
-                                devices = discoveredServices,
-                                localIp = localIp,
-                                initialIp = savedIp,
-                                onConnect = { ip ->
-                                    scope.launch {
-                                        prefs.edit().putString("last_pc_ip", ip).apply()
-                                        if (pingPC(ip)) signalRManager.connect(ip)
-                                        else Toast.makeText(context, "Cannot reach PC.", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                onClose = { showSetup = false },
-                                onDisconnect = { 
-                                    signalRManager.disconnect()
-                                    engine.reset()
-                                }
-                            )
+                // 自動搜尋
+                LaunchedEffect(showSetup, connectionState) {
+                    if (showSetup && connectionState == HubConnectionState.DISCONNECTED) {
+                        while (isActive) {
+                            mdnsScanner.startScan()
+                            delay(8000)
                         }
                     }
+                }
+
+                MaterialTheme {
+                    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF121212)) {
+                        Box {
+                            TimerScreen(
+                                engine = service.engine, 
+                                network = service.signalRManager,
+                                isSynced = connectionState == HubConnectionState.CONNECTED,
+                                onOpenSetup = { showSetup = true }
+                            )
+
+                            AnimatedVisibility(
+                                visible = showSetup,
+                                enter = slideInVertically(initialOffsetY = { it }),
+                                exit = slideOutVertically(targetOffsetY = { it })
+                            ) {
+                                SetupScreen(
+                                    state = connectionState,
+                                    devices = discoveredServices,
+                                    localIp = localIp,
+                                    initialIp = savedIp,
+                                    onConnect = { ip ->
+                                        scope.launch {
+                                            prefs.edit().putString("last_pc_ip", ip).apply()
+                                            if (pingPC(ip)) service.signalRManager.connect(ip)
+                                            else Toast.makeText(context, "Cannot reach PC.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    onClose = { showSetup = false },
+                                    onDisconnect = { 
+                                        service.signalRManager.disconnect()
+                                        service.engine.reset()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // 載入中畫面
+                Box(modifier = Modifier.fillMaxSize().background(Color(0xFF121212)), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFFFF8C00))
                 }
             }
         }
@@ -163,7 +204,10 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         mdnsScanner.stopScan()
-        signalRManager.disconnect()
+        if (isBound) {
+            unbindService(connection)
+            isBound = false
+        }
     }
 }
 

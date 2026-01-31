@@ -18,6 +18,7 @@ namespace clock.IntegrationTests
                 Test_TogglePause();
                 Test_Settings();
                 Test_StartupService();
+                SettingsTests.RunTests();
                 EngineTickingTests.RunTests();
                 StateSyncTests.RunTests();
                 Console.WriteLine("All tests passed!");

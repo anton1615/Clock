@@ -28,6 +28,7 @@ namespace clock.Views
             // 啟動時檢查實際檔案狀態，讓介面更精準
             _settings.IsStartupEnabled = StartupService.IsStartupEnabled();
             StartupCheck.IsChecked = _settings.IsStartupEnabled;
+            ConsoleCheck.IsChecked = _settings.ShowConsole;
             
             // 初始化字型選單
             FontFamilyCombo.ItemsSource = Fonts.SystemFontFamilies.OrderBy(f => f.Source);
@@ -60,6 +61,8 @@ namespace clock.Views
             VolumeSlider.ValueChanged += (s, e) => _settings.Volume = VolumeSlider.Value;
             StartupCheck.Checked += (s, e) => _settings.IsStartupEnabled = true;
             StartupCheck.Unchecked += (s, e) => _settings.IsStartupEnabled = false;
+            ConsoleCheck.Checked += (s, e) => _settings.ShowConsole = true;
+            ConsoleCheck.Unchecked += (s, e) => _settings.ShowConsole = false;
         }
 
         private void InitializeColorPicker(WrapPanel panel, TextBox box, Border preview, Action<string> updateAction, string initialValue, bool isText = false)

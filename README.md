@@ -11,6 +11,14 @@
 A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
 Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
+## 🚀 New in v1.1.1: Background Service & CI/CD Release
+
+*   **Background Sync**: Android app now stays connected in the background using a Foreground Service.
+*   **Notification Countdown**: Real-time countdown (MM:SS) directly in your Android notification bar with stage-specific accent colors.
+*   **System Audio Integration**: Android client automatically uses your phone's default notification sound—no external files required.
+*   **Console Toggle**: PC users can now hide/show the developer console window via the Settings GUI.
+*   **Automated APK Builds**: GitHub Actions now provides both `.exe` and `.apk` in the Release section.
+
 ## 🚀 New in v1.1.0: Android Sync
 
 *   **Real-time Sync**: Synchronize time, phase (Work/Break), and pause status between PC and Phone.
@@ -41,19 +49,16 @@ Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
    - *Pro Tip*: If your network is set to "Public", you must manually enable the "Public" profile in Windows Advanced Firewall settings for the app.
 
 ### 📱 Android (Client)
-1. Build the `clock-android` project using Android Studio and install the APK.
-2. Ensure your phone is on the same Wi-Fi or connected via Tailscale.
-3. Tap the **Sync icon** (top right) and select your PC from the list, or enter the IP manually.
+1. Download the `clock.apk` from the latest GitHub Release.
+2. Install the APK on your Android device (ensure "Install from unknown sources" is allowed).
+3. Ensure your phone is on the same Wi-Fi or connected via Tailscale.
+4. Tap the **Sync icon** (top right) and select your PC from the list, or enter the IP manually.
 
 ### 🎵 Important: Sound Effects Setup
 
-To respect copyright laws, **this repository does not include sound files**. You need to provide your own notification sound.
-
-1.  Find a sound effect you like (e.g., a `.wav` file).
-2.  Rename it to `notify.wav` (optional, but recommended default).
-3.  Place the file in the `Assets` folder next to the executable.
-    *   *Alternatively*, use the **"Browse..." button** in the Settings GUI to select any `.wav` file on your computer.
-    *   *Config file*: You can also specify a custom path in `setting.json`.
+To respect copyright laws, **the Windows version does not include sound files**. 
+*   **Windows**: You need to provide your own sound. Place a `.wav` file in the `Assets` folder and rename it to `notify.wav`, or use the "Browse..." button in Settings.
+*   **Android**: Automatically uses your system's default notification sound. No setup required.
 
 ## ⚙️ Configuration (`setting.json`)
 

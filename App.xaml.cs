@@ -1,4 +1,4 @@
-using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using clock.Services;
 using clock.ViewModels;
@@ -10,6 +10,10 @@ namespace clock
 {
     public partial class App : Application
     {
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool AllocConsole();
+
         private SyncServerService? _syncServer;
         private MdnsService? _mdns;
 
@@ -23,12 +27,19 @@ namespace clock
         {
             base.OnStartup(e);
 
+            var settings = AppSettings.Load();
+            if (settings.ShowConsole)
+            {
+                AllocConsole();
+                Console.WriteLine("[System] Console allocated by user preference.");
+            }
+
             var settingsService = new SettingsService();
             var timer = new WpfTimer();
             var audioService = new WpfAudioService();
             
             // 建立初始引擎
-            var initialEngine = new PomodoroEngine(AppSettings.Load(), timer);
+            var initialEngine = new PomodoroEngine(settings, timer);
             _syncServer = new SyncServerService(initialEngine);
             
             var uiService = new WpfUIService(async () => {
