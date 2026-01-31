@@ -11,6 +11,17 @@
 A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
 Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
+## 🚀 New in v1.1.3: Security & Privacy Hardening
+
+*   **Secure Settings Migration (PC)**: `setting.json` is now stored in `%LocalAppData%\Clock` for better permission management and system compliance. Automatic migration from the old location is included.
+*   **Privacy-First Notifications (Android)**: Notification visibility is now set to `PRIVATE` to protect timer details on the lock screen.
+*   **Restricted Network Access**: PC-side CORS policies are now tightened to prevent unauthorized cross-origin requests from browsers.
+*   **Enhanced Input Validation**: 
+    *   **Android**: Strict IP/Hostname validation for PC discovery to prevent SSRF.
+    *   **Both**: Hex color validation to prevent crashes from malformed settings.
+*   **PowerShell Safety**: Improved startup script generation with proper string escaping.
+*   **Battery Optimization**: Android mDNS scanning now automatically stops after a successful connection to save power.
+
 ## 🚀 New in v1.1.1: Background Service & CI/CD Release
 
 *   **Background Sync**: Android app now stays connected in the background using a Foreground Service.
@@ -64,7 +75,9 @@ To respect copyright laws, **the Windows version does not include sound files**.
 
 ## ⚙️ Configuration (`setting.json`)
 
-On the first run, a `setting.json` file will be generated in the application directory. You can edit this file manually or right-click the system tray icon and select "Settings".
+**Windows (Host)**: The `setting.json` file is stored in `%LocalAppData%\Clock\setting.json`. You can edit this file manually or open the "Settings" window from the application UI.
+
+**Android (Client)**: Settings are managed directly within the App's "Settings" screen and stored in the app's private storage.
 
 ### Config Properties:
 

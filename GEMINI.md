@@ -1,17 +1,17 @@
-# Gemini CLI 專案上下文彙總 (Clock)
+﻿# Gemini CLI 專案上下文彙總 (Clock)
 
 ## 專案現況
 - **專案名稱**: Clock
-- **目前版本**: v1.1.0 (Android Sync & High-Precision Update)
+- **目前版本**: v1.1.3 (Security & Privacy Hardening)
 - **核心技術**: .NET 10, WPF, Android Native (Kotlin + Compose), SignalR, mDNS
 - **開發日期**: 2026-01-31
 
 ## 專案結構
-- `clock`: WPF 視圖層、通訊服務器實作與程式入口。
-- `clock.Lib`: 核心邏輯、模型與 ViewModel。已重構為純 `.NET 10` Library，與 UI 完全解耦。
-- `clock-android`: Android 原生專案 (Android Studio)，負責手機端同步顯示與控制。
-- `Tests/clock.IntegrationTests`: 整合測試，包含計時器、狀態同步與網路診斷測試。
-- `conductor/`: AI 導引開發軌跡資料夾。
+- clock: WPF 視圖層、通訊服務器實作與程式入口。支援 WinExe 模式與動態控制台分配。
+- clock.Lib: 核心邏輯、模型與 ViewModel。已重構為純 .NET 10 Library，與 UI 完全解耦。
+- clock-android: Android 原生專案 (Android Studio)，負責手機端同步顯示、背景服務與本地設定。
+- Tests/clock.IntegrationTests: 整合測試，包含計時器、狀態同步、設定持久化與網路診斷測試。
+- conductor/: AI 導引開發軌跡資料夾。
 
 ## 核心功能紀錄
 1. **動態主題背景**: 背景顏色隨階段變動，邏輯：計算 Bar 顏色之 30% 亮度的深色調。
@@ -21,21 +21,39 @@
    - **環形 UI**: 手機端採用類系統計時器的圓形進度條設計。
    - **雙模式**: 支援連線同步模式與離線獨立計時模式。
 3. **高精度計時**: PC 端改用 UTC 時間戳絕對座標計算，徹底解決 DispatcherTimer 導致的 Drift 偏差。
+4. **背景同步與通知 (v1.1.1)**:
+   - **前台服務 (Foreground Service)**: 確保 Android 端在背景仍能維持連線，不被系統掛起。
+   - **通知欄倒數**: 使用 Chronometer API 實現極低功耗的即時秒數顯示（修正為 Wall Clock 基準）。
+   - **系統音效集成**: Android 自動調用系統通知音，解決版權問題。
+   - **控制台切換**: PC 端支援在設定中隱藏/顯示 CMD 黑框。
+5. **進階自訂與優化 (v1.1.2)**:
+   - **本地設定頁面**: Android 端可自訂工作/休息時長、強調色與音效（同步模式下自動鎖定時長調整）。
+   - **音效管理**: 支援系統鈴聲選擇器，可顯示音效名稱並支援靜音模式。
+   - **螢幕管理**: 加入「螢幕常亮 (Keep Screen On)」選項。
+   - **CI/CD 優化**: 自動產生單一執行檔 (clock-win-x64.exe) 與 APK，移除 PDB 並開啟壓縮。
+6. **安全性與隱私強化 (v1.1.3)**:
+   - **設定遷移**: PC 端 `setting.json` 移至 `%LocalAppData%\Clock`，符合 Windows 規範並支援自動遷移。
+   - **網路安全**: PC 端縮減 CORS 政策權限；Android 端強化 IP/Hostname 驗證以防範 SSRF。
+   - **防禦性程式碼**: 加入 Hex 顏色格式驗證，防止因設定錯誤導致的啟動閃退。
+   - **隱私控制**: Android 通知可見性調為 `PRIVATE`，保護鎖屏資訊。
+   - **資源回收**: Android 端連線後自動停止 mDNS 掃描，節省電力與 WiFi 資源。
 
 ## 重要技術決策
-- **核心抽象化**: 將計時器 (`ITimer`)、音效 (`IAudioService`) 與 UI 控制 (`IUIService`) 介面化，確保 `clock.Lib` 可跨平台重用。
-- **單一事實來源**: 採用 Round-trip 同步邏輯（方案 B），一切以 PC 端狀態為準，手機端作為遠端顯示與控制器。
-- **Android 原生轉向**: 從 .NET MAUI 轉向 Android Studio (Kotlin)，以獲得更佳的效能、UI 流暢度與省電特性。
-- **網路對時**: 引入 `TargetEndTimeUnix` (UTC) 以補償網路傳輸延遲，手機端使用 EMA (指數移動平均) 進行平滑校正。
+- **核心抽象化**: 將計時器 (ITimer)、音效 (IAudioService) 與 UI 控制 (IUIService) 介面化，確保 clock.Lib 可跨平台重用。
+- **單一事實來源**: 採用 Round-trip 同步邏輯（方案 B），同步時以 PC 為準，手機端作為遠端顯示與控制器。
+- **Android 本地持久化**: 使用 SharedPreferences 與 SettingsRepository 儲存手機端專屬設定。
+- **網路對時**: 引入 TargetEndTimeUnix (UTC) 以補償網路傳輸延遲，手機端使用 EMA (指數移動平均) 進行平滑校正。
+- **安全性優先**: 設定檔儲存、網路連線與系統腳本均加入驗證與轉義邏輯，確保系統強健性。
 
 ## 網路配置要求
 - **連接埠**: 必須允許 TCP 8888 (SignalR)。
 - **防火牆**: 在「公用網路」下需手動在進階防火牆中勾選「公用」設定檔以放行入站連線。
 
 ## 待辦事項/未來方向
-- [ ] 實作 Android 端的「前台服務 (Foreground Service)」，防止 App 進入背景後被系統殺死。
+- [x] 實作 Android 端的「前台服務 (Foreground Service)」，防止 App 進入背景後被系統殺死。
 - [ ] 優化 mDNS 解析 (Resolve) 在不同路由器下的成功率。
 - [ ] 考慮加入自訂透明度動畫。
+- [ ] 優化 Android 鎖定畫面通知在特定廠牌 (如 Sony) 的顯示相容性。
 
 ---
 *此文件由 Gemini CLI 自動生成，作為 reload memory 的基礎。*

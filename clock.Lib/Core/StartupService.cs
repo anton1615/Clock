@@ -24,6 +24,9 @@ namespace clock.Core
                     string targetPath = Environment.ProcessPath ?? string.Empty;
                     if (string.IsNullOrEmpty(targetPath)) return;
 
+                    // Escape single quotes for PowerShell
+                    string escapedPath = targetPath.Replace("'", "''");
+
                     // Ensure directory exists (should exist on standard Windows)
                     if (!Directory.Exists(StartupFolderPath))
                     {
@@ -32,7 +35,7 @@ namespace clock.Core
 
                     string script = "$WshShell = New-Object -ComObject WScript.Shell; " + 
                                    "$Shortcut = $WshShell.CreateShortcut('" + ShortcutPath + "'); " + 
-                                   "$Shortcut.TargetPath = '" + targetPath + "'; " + 
+                                   "$Shortcut.TargetPath = '" + escapedPath + "'; " + 
                                    "$Shortcut.Save()";
 
                     Process.Start(new ProcessStartInfo

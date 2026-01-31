@@ -65,7 +65,7 @@ namespace clock.Services
                     builder.WebHost.ConfigureKestrel(o => o.Listen(IPAddress.Any, 8888));
                     builder.Services.AddSignalR();
                     builder.Services.AddSingleton(_engine);
-                    builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyHeader().AllowAnyMethod().SetIsOriginAllowed(_ => true).AllowCredentials()));
+                    builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyHeader().AllowAnyMethod()));
 
                     _app = builder.Build();
                     _app.UseCors();

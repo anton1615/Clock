@@ -18,11 +18,19 @@ class SettingsRepository(context: Context) {
     }
 
     fun saveSettings(settings: AppSettings) {
+        val colorRegex = Regex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$")
+
         prefs.edit().apply {
             putInt("work_duration", settings.workDuration)
             putInt("break_duration", settings.breakDuration)
-            putString("work_color", settings.workColor)
-            putString("break_color", settings.breakColor)
+            
+            if (colorRegex.matches(settings.workColor)) {
+                putString("work_color", settings.workColor)
+            }
+            if (colorRegex.matches(settings.breakColor)) {
+                putString("break_color", settings.breakColor)
+            }
+            
             putString("sound_uri", settings.soundUri)
             putBoolean("keep_screen_on", settings.keepScreenOn)
             apply()

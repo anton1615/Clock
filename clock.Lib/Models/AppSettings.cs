@@ -27,7 +27,12 @@ namespace clock.Models
         [ObservableProperty] private bool _isStartupEnabled = false;
         [ObservableProperty] private bool _showConsole = true;
 
-        private static readonly string _filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "setting.json");
+        private static readonly string _oldFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "setting.json");
+        private static readonly string _filePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Clock",
+            "setting.json"
+        );
 
         public void Save()
         {
@@ -47,6 +52,19 @@ namespace clock.Models
 
         public static AppSettings Load()
         {
+            // 遷移邏輯：如果新位置沒有檔案但舊位置有，則搬移
+            try
+            {
+                if (!File.Exists(_filePath) && File.Exists(_oldFilePath))
+                {
+                    string? dir = Path.GetDirectoryName(_filePath);
+                    if (dir != null && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                    File.Move(_oldFilePath, _filePath);
+                    Console.WriteLine("[Settings] Migrated settings to LocalApplicationData.");
+                }
+            }
+            catch { /* Ignore migration errors */ }
+
             AppSettings settings;
             try
             {

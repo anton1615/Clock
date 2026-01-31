@@ -143,9 +143,10 @@ class MainActivity : ComponentActivity() {
                 var showSetup by remember { mutableStateOf(false) }
                 var showSettings by remember { mutableStateOf(false) }
 
-                // 同步狀態處理：連線成功後自動收起設定頁
+                // 同步狀態處理：連線成功後自動收起設定頁，並停止掃描
                 LaunchedEffect(connectionState) {
                     if (connectionState == HubConnectionState.CONNECTED) {
+                        mdnsScanner.stopScan()
                         delay(500)
                         showSetup = false
                     }
@@ -184,10 +185,14 @@ class MainActivity : ComponentActivity() {
                                     localIp = localIp,
                                     initialIp = savedIp,
                                     onConnect = { ip ->
-                                        scope.launch {
-                                            prefs.edit().putString("last_pc_ip", ip).apply()
-                                            if (pingPC(ip)) service.signalRManager.connect(ip)
-                                            else Toast.makeText(context, "Cannot reach PC.", Toast.LENGTH_SHORT).show()
+                                        if (isValidIpOrHostname(ip)) {
+                                            scope.launch {
+                                                prefs.edit().putString("last_pc_ip", ip).apply()
+                                                if (pingPC(ip)) service.signalRManager.connect(ip)
+                                                else Toast.makeText(context, "Cannot reach PC.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            Toast.makeText(context, "Invalid IP or Hostname format.", Toast.LENGTH_SHORT).show()
                                         }
                                     },
                                     onClose = { showSetup = false },
@@ -252,6 +257,15 @@ class MainActivity : ComponentActivity() {
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
+    }
+
+    private fun isValidIpOrHostname(input: String): Boolean {
+        if (input.isBlank()) return false
+        // 支援 IPv4, 主機名稱, 以及 .local (mDNS)
+        val pattern = Regex("^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$")
+        if (!pattern.matches(input)) return false
+        if (input.contains("..") || input.contains("--")) return false
+        return true
     }
 
     private suspend fun pingPC(ip: String): Boolean = withContext(Dispatchers.IO) {
