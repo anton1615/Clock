@@ -5,9 +5,6 @@ using System.Threading.Tasks;
 
 namespace clock.Hubs
 {
-    /// <summary>
-    /// SignalR Hub，用於與 Android 客戶端同步通訊。
-    /// </summary>
     public class ClockHub : Hub
     {
         private readonly PomodoroEngine _engine;
@@ -17,28 +14,14 @@ namespace clock.Hubs
             _engine = engine;
         }
 
-        /// <summary>
-        /// 客戶端連線後請求當前狀態。
-        /// </summary>
+        // 當手機剛連上時，會呼叫這個方法
         public async Task RequestState()
         {
+            // 立即回傳目前的狀態給發起請求的客戶端
             await Clients.Caller.SendAsync("ReceiveState", _engine.GetState());
         }
 
-        /// <summary>
-        /// 遠端控制：切換暫停。
-        /// </summary>
-        public void TogglePause()
-        {
-            _engine.TogglePause();
-        }
-
-        /// <summary>
-        /// 遠端控制：切換階段。
-        /// </summary>
-        public void TogglePhase()
-        {
-            _engine.TogglePhase();
-        }
+        public void TogglePause() => _engine.TogglePause();
+        public void TogglePhase() => _engine.TogglePhase();
     }
 }

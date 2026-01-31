@@ -3,14 +3,18 @@ using System.Windows;
 using clock.Services;
 using clock.ViewModels;
 using clock.Views;
+using clock.Core;
+using clock.Models;
 
 namespace clock
 {
     public partial class App : Application
     {
+        private SyncServerService? _syncServer;
+        private MdnsService? _mdns;
+
         public App()
         {
-            // 捕捉未處理的例外
             this.DispatcherUnhandledException += App_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
         }
@@ -22,16 +26,24 @@ namespace clock
             var settingsService = new SettingsService();
             var timer = new WpfTimer();
             var audioService = new WpfAudioService();
-            var uiService = new WpfUIService();
+            
+            // 建立初始引擎
+            var initialEngine = new PomodoroEngine(AppSettings.Load(), timer);
+            _syncServer = new SyncServerService(initialEngine);
+            
+            var uiService = new WpfUIService(async () => {
+                _mdns?.Dispose();
+                if (_syncServer != null) await _syncServer.StopAsync();
+            });
+
             var mainViewModel = new MainViewModel(settingsService, timer, audioService, uiService);
+            
+            // 綁定正式 Engine 到伺服器
+            _syncServer.UpdateEngine(mainViewModel.Engine);
+            _syncServer.Start();
 
-            // 啟動同步伺服器
-            var syncServer = new SyncServerService(mainViewModel.Engine);
-            syncServer.Start();
-
-            // 啟動 mDNS 廣播
-            var mdns = new MdnsService(Environment.MachineName);
-            mdns.Start();
+            _mdns = new MdnsService(Environment.MachineName);
+            _mdns.Start();
 
             var mainWindow = new MainWindow();
             mainWindow.DataContext = mainViewModel;
@@ -40,16 +52,11 @@ namespace clock
 
         private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
         {
-            Console.WriteLine($"[UI Error] {e.Exception.Message}");
-            MessageBox.Show($"UI Error: {e.Exception.Message}", "Crash");
-            e.Handled = true; // 嘗試讓程式繼續運行
+            e.Handled = true;
         }
 
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            var ex = e.ExceptionObject as Exception;
-            Console.WriteLine($"[System Error] {ex?.Message}");
-            MessageBox.Show($"System Error: {ex?.Message}", "Critical Crash");
         }
     }
 }

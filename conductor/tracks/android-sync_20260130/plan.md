@@ -25,12 +25,23 @@
     - [x] 整合 Makaretu.Dns 套件，在網路中廣播 _clock._tcp.local。
 - [x] Task: 狀態推送機制 37d04c0
     - [x] 串接 PomodoroEngine 的變更事件，即時透過 SignalR 推送到所有客戶端。
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: PC Communication' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: PC Communication' (Protocol in workflow.md) 7af40ba
 
-#### Phase 3: Android (MAUI) 客戶端開發
-*本階段目標是打造 Android App 介面並達成同步。*
-- [ ] Task: 建立 .NET MAUI 專案
-    - [ ] 建立 Android 專案並引用 clock.Lib。
+#### Phase 3: Android Studio (Kotlin) 原生開發
+*本階段目標是使用 Android Studio 打造高性能、省電的原生同步 App。*
+- [x] Task: Android 專案基礎建設 84af62b
+    - [x] 在 Android Studio 建立 Empty Compose Activity 專案。
+    - [x] 配置 `build.gradle` 引入 SignalR 與 mDNS (NsdManager) 相關依賴。
+- [x] Task: 移植核心邏輯 (Kotlin Blueprint) 84af62b
+    - [x] 實作 Kotlin 版 `EngineState` 數據類別。
+    - [x] 實作 Kotlin 版 `PomodoroEngine` 邏輯（包含 UTC 時間校正）。
+- [~] Task: 實作 mDNS 發現與連線 UI
+    - [ ] 使用 Android 原生 `NsdManager` 搜尋 `_clock._tcp` 服務。
+    - [ ] 實作 Jetpack Compose 列表顯示發現的 PC。
+- [ ] Task: 實作環形進度條與同步
+    - [ ] 使用 Jetpack Compose 繪製高性能圓環動畫。
+    - [ ] 實作 SignalR Client 連線與控制命令轉發。
+- [ ] Task: Conductor - User Manual Verification 'Phase 3: Android Native App' (Protocol in workflow.md)
 - [ ] Task: 實作 mDNS 發現與手動連線
     - [ ] 使用 Android 原生 NsdManager 搜尋 PC。
     - [ ] 實作手動輸入 IP (支援 Tailscale) 的 UI 與快取機制。
