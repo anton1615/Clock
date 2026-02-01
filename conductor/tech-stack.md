@@ -27,10 +27,13 @@
 *   **動態色彩計算**：實作顏色轉換邏輯，根據使用者選色自動衍生背景深色調。
 
 
-## Android 銵ㄖ
-*   **Foreground Service**: 蝣箔駁郊嚗Ⅱ靽 PC 駁銝駁
-*   **Chronometer API**: 雿輻蝟餌絞原生 API 內嚗鼠拐蝙刻瘜
-*   **RingtoneManager**: 隤輻蝟餌絞批遣單嚗蕭瘙Ｘ瞏
+## Android 實作
+*   **Foreground Service**: 使用前台服務，確保與 PC 端連線不中斷。
+*   **Chronometer API**: 使用系統原生 API 顯示倒數，極大化省電效能。
+*   **RingtoneManager**: 調用系統內建鈴聲選取器，解決版權與資源體積問題。
+*   **Adaptive Ticking**: 根據 App 狀態 (前台/背景/鎖屏) 動態調整計算頻率 (50ms/1s/None)，螢幕關閉時進入零喚醒模式。
+*   **Sound Scheduling**: 移除 Polling 監聽，改用協程 (Coroutine) 延遲預約機制以達成計時結束時的精準觸發。
+*   **Lifecycle Monitoring**: 使用 `ProcessLifecycleOwner` 追蹤 App 前背景狀態。
 
 \
 ## 安全性與隱私
