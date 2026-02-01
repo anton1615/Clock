@@ -1,5 +1,6 @@
 package com.anton.clock.core
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -27,6 +28,7 @@ import com.anton.clock.models.AppSettings
 
 class TimerService : Service() {
     private val TAG = "TimerService"
+    private val ACTION_TRIGGER_SOUND = "com.anton.clock.TRIGGER_SOUND"
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val binder = TimerBinder()
     
@@ -34,6 +36,7 @@ class TimerService : Service() {
     val engine = PomodoroEngine()
     
     private lateinit var settingsRepository: SettingsRepository
+    private lateinit var alarmManager: AlarmManager
     private var currentSettings = AppSettings()
     
     private var isBound = false
@@ -76,6 +79,7 @@ class TimerService : Service() {
     override fun onCreate() {
         super.onCreate()
         settingsRepository = SettingsRepository(this)
+        alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         currentSettings = settingsRepository.getSettings()
         
         createNotificationChannel()
@@ -153,8 +157,19 @@ class TimerService : Service() {
         startForeground(NOTIFICATION_ID, createNotification())
     }
 
+    private fun getSoundPendingIntent(): PendingIntent {
+        val intent = Intent(this, TimerService::class.java).apply {
+            action = ACTION_TRIGGER_SOUND
+        }
+        return PendingIntent.getService(
+            this, 1, intent, 
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
     private fun scheduleSound() {
         soundJob?.cancel()
+        alarmManager.cancel(getSoundPendingIntent())
         
         val isPaused = engine.isPaused.value
         if (isPaused) {
@@ -171,13 +186,39 @@ class TimerService : Service() {
         }
 
         lastScheduledSeconds = remainingSecs
-        Log.d(TAG, "Scheduling sound in ${remainingMillis}ms")
+        Log.d(TAG, "Scheduling sound in ${remainingMillis}ms (AlarmManager + Coroutine)")
         
+        // 1. AlarmManager 保險 (螢幕關閉、Doze 模式必備)
+        val triggerTime = SystemClock.elapsedRealtime() + remainingMillis
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerTime,
+                    getSoundPendingIntent()
+                )
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerTime,
+                    getSoundPendingIntent()
+                )
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Failed to set exact alarm (permission missing?), falling back to non-exact.", e)
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                triggerTime,
+                getSoundPendingIntent()
+            )
+        }
+
+        // 2. Coroutine delay (App 活著時的快速反應)
         soundJob = serviceScope.launch {
             delay(remainingMillis)
             // 再次檢查是否仍未暫停
             if (!engine.isPaused.value) {
-                Log.d(TAG, "Scheduled sound trigger fired!")
+                Log.d(TAG, "Coroutine sound trigger fired!")
                 playDefaultNotificationSound()
             }
         }
@@ -201,7 +242,9 @@ class TimerService : Service() {
                 Uri.parse(soundUriStr)
             }
             val ringtone = RingtoneManager.getRingtone(applicationContext, uri)
-            ringtone.play()
+            if (ringtone != null && !ringtone.isPlaying) {
+                ringtone.play()
+            }
         } catch (e: Exception) {
             Log.e("TimerService", "Failed to play notification sound", e)
         }
@@ -292,6 +335,10 @@ class TimerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_TRIGGER_SOUND) {
+            Log.d(TAG, "Sound triggered via AlarmManager action")
+            playDefaultNotificationSound()
+        }
         return START_STICKY
     }
 
@@ -305,6 +352,7 @@ class TimerService : Service() {
         super.onDestroy()
         unregisterReceiver(screenReceiver)
         soundJob?.cancel() // 明確取消音效預約
+        alarmManager.cancel(getSoundPendingIntent())
         serviceScope.cancel()
         signalRManager.disconnect()
     }

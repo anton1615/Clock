@@ -2,7 +2,7 @@
 
 ## 專案現況
 - **專案名稱**: Clock
-- **目前版本**: v1.1.6 (Reliability & Sync Fixes)
+- **目前版本**: v1.1.7 (Background Precision & UI Fixes)
 - **核心技術**: .NET 10, WPF, Android Native (Kotlin + Compose), SignalR, mDNS
 - **開發日期**: 2026-02-01
 
@@ -39,14 +39,14 @@
    - **資源回收**: Android 端連線後自動停止 mDNS 掃描，節省電力與 WiFi 資源。
 7. **電力、邏輯與生命週期優化 (v1.1.5)**:
    - **智慧刷新率 (Adaptive Ticking)**: 根據 App 狀態動態調整 (前台 50ms / 背景 1s / 螢幕關閉 1s 喚醒)。
-
-...
-
 8. **可靠性與同步修復 (v1.1.6)**:
    - **修正螢幕關閉時間凍結**: 將時間基準 (`lastTime`) 全域化並縮短休眠間隔至 1 秒，確保背景與螢幕關閉時計時不中斷。
-   - **智慧音效重對齊**: 監聽 PC 同步狀態，當剩餘秒數發生超過 2 秒的跳變（如連線初始化或手動改時長）時，自動重新預約音效，解決提早響鈴問題。
-   - **健全生命週期退出**: 實作 `onTaskRemoved`，當使用者從最近任務列表滑掉 App 時自動停止服務並移除通知，提供更直覺的退出體驗。
-   - **暫停恢復校正**: 修正從暫停狀態恢復時，因基準時間未更新導致的時間大幅跳水 Bug。
+   - **智慧音效重對齊**: 監聽 PC 同步狀態，當剩餘秒數發生超過 2 秒的跳變時自動重新預約音效。
+   - **健全生命週期退出**: 實作 `onTaskRemoved`，提供更直覺的退出體驗。
+9. **背景精準度與 UI 修復 (v1.1.7)**:
+   - **AlarmManager 集成**: 引入 `setExactAndAllowWhileIdle` 確保在 Doze 模式下音效依然能精準響起。
+   - **負數箝位 (Clamping)**: 全面修正 `remainingSeconds` 的賦值邏輯，防止出現 `-1` 或負數顯示。
+   - **權限宣告**: 加入 `SCHEDULE_EXACT_ALARM` 以支援 Android 14 高精度定時。
 
 ## 重要技術決策
 - **核心抽象化**: 將計時器 (ITimer)、音效 (IAudioService) 與 UI 控制 (IUIService) 介面化，確保 clock.Lib 可跨平台重用。

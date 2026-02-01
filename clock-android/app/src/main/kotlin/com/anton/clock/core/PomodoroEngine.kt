@@ -71,9 +71,9 @@ class PomodoroEngine(
             val now = System.currentTimeMillis()
             val adjustedNow = now.toDouble() + (clockOffsetRolling ?: 0.0)
             val diff = state.targetEndTimeUnix.toDouble() - adjustedNow
-            _remainingSeconds.value = if (diff > 0) (diff / 1000.0) else 0.0
+            _remainingSeconds.value = Math.max(0.0, diff / 1000.0)
         } else {
-            _remainingSeconds.value = state.remainingSeconds
+            _remainingSeconds.value = Math.max(0.0, state.remainingSeconds)
         }
     }
 
@@ -103,8 +103,9 @@ class PomodoroEngine(
                     refreshTimeFromTarget()
                 } else if (!_isPaused.value) {
                     val delta = (now - lastTime) / 1000.0
-                    if (_remainingSeconds.value > 0) {
-                        _remainingSeconds.value -= delta
+                    val newVal = _remainingSeconds.value - delta
+                    if (newVal > 0) {
+                        _remainingSeconds.value = newVal
                     } else {
                         // 倒數結束，自動切換階段 (離線模式)
                         _remainingSeconds.value = 0.0
@@ -149,7 +150,7 @@ class PomodoroEngine(
             refreshTimeFromTarget()
         } else {
             // 暫停狀態或無目標時間，直接使用 State 數值
-            _remainingSeconds.value = state.remainingSeconds
+            _remainingSeconds.value = Math.max(0.0, state.remainingSeconds)
         }
 
         // 3. 最後更新狀態旗標 (觸發 TimerService 的監聽器)
@@ -181,7 +182,7 @@ class PomodoroEngine(
         workDurationMinutes = nextWorkMins
         breakDurationMinutes = nextBreakMins
         val mins = if (_isWorkPhase.value) workDurationMinutes else breakDurationMinutes
-        _remainingSeconds.value = mins * 60.0
+        _remainingSeconds.value = Math.max(0.0, mins * 60.0)
         _isPaused.value = startPaused
         lastState = null
         clockOffsetRolling = null

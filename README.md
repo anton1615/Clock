@@ -11,6 +11,13 @@
 A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
 Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
+## 🚀 New in v1.1.7: Background Precision & UI Fixes
+
+*   **AlarmManager Integration**: Replaced standard coroutine delays with Android's `AlarmManager` (`setExactAndAllowWhileIdle`) for sound triggering. This ensures that the notification sound rings accurately even in deep sleep (Doze Mode).
+*   **Negative Time Clamp**: Added defensive logic to the `remainingSeconds` calculation. The UI will now never show negative values or the momentary `-1` glitch during sync drifts or phase transitions.
+*   **Android 14 Support**: Added `SCHEDULE_EXACT_ALARM` permission to comply with the latest Android requirements for precise timing apps.
+*   **Dual-Track Triggering**: Maintained coroutine delays for high-responsiveness while active, backed by `AlarmManager` for rock-solid reliability in the background.
+
 ## 🚀 New in v1.1.6: Reliability & Sync Fixes
 
 *   **Fixed Screen-Off Time Freeze**: The timer now correctly tracks elapsed time while the screen is off by utilizing a persistent time reference and a 1s "Power-Efficient Tick".
