@@ -35,8 +35,7 @@
 *   **Sound Scheduling**: 移除 Polling 監聽，改用協程 (Coroutine) 延遲預約機制以達成計時結束時的精準觸發。
 *   **Lifecycle Monitoring**: 使用 `ProcessLifecycleOwner` 追蹤 App 前背景狀態。
 
-\
 ## 安全性與隱私
 *   **傳輸安全**: 使用 SignalR 進行本地同步，CORS 政策僅開放給必要連線。
 *   **輸入驗證**: Android 端實施嚴格的 IP/Hostname 驗證與顏色格式驗證。
-*   **隱私保護**: Android 通知設定為 PRIVATE，隱藏鎖屏資訊。\
+*   **隱私保護**: Android 通知設定為 PRIVATE，隱藏鎖屏資訊。

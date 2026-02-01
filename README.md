@@ -11,6 +11,19 @@
 A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
 Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
+## 🚀 New in v1.1.5: Power Optimization & Logic Fixes
+
+*   **Adaptive Ticking (Android)**: Drastically reduced battery usage by adjusting the computation frequency based on app state:
+    *   **Foreground**: 50ms (for smooth animations).
+    *   **Background**: 1s (to update notification bar).
+    *   **Screen Off**: **Zero-Wakeup** mode (1hr delay). CPU now deep sleeps during long countdowns.
+*   **Scheduled Sound Triggers**: Replaced high-frequency polling with a Coroutine-based "Pre-set Alarm" mechanism. Sound triggers accurately even when the CPU is sleeping.
+*   **Automatic Phase Cycling**: Standalone mode now correctly cycles through Work/Break phases without manual intervention.
+*   **Robust Sync Transitions**: 
+    *   **Auto-Resume**: Manual phase switching no longer causes unintended pauses.
+    *   **Graceful Disconnect**: App now automatically resets to defaults and cancels alarms when the PC connection is lost or the PC app is closed.
+*   **Consistent APK Signing**: Fixed the "App not installed" error during updates. From v1.1.5 onwards, you can directly overwrite previous versions without uninstalling.
+
 ## 🚀 New in v1.1.3: Security & Privacy Hardening
 
 *   **Secure Settings Migration (PC)**: `setting.json` is now stored in `%LocalAppData%\Clock` for better permission management and system compliance. Automatic migration from the old location is included.
