@@ -15,6 +15,7 @@ Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
 *   **Fixed Screen-Off Time Freeze**: The timer now correctly tracks elapsed time while the screen is off by utilizing a persistent time reference and a 5s "Power-Efficient Tick".
 *   **Intelligent Sound Re-Sync**: Android now monitors sync drift from the PC. If the remaining time jumps by more than 2 seconds (e.g., during initial connection or manual duration changes), the notification sound is automatically rescheduled to stay perfectly aligned.
+*   **Clean Task Exit**: Swiping the app away from the Android Recents list now properly terminates the background service and removes the notification, ensuring a predictable lifecycle.
 *   **Pause/Resume Robustness**: Improved time tracking logic to prevent "time jumps" when resuming from a paused state or transitioning between power modes.
 
 ## 🚀 New in v1.1.5: Power Optimization & Logic Fixes

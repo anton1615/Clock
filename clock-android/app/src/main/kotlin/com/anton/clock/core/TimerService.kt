@@ -295,6 +295,12 @@ class TimerService : Service() {
         return START_STICKY
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.d(TAG, "Task removed (app swiped away). Stopping service.")
+        stopSelf() // 徹底停止服務並移除通知
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(screenReceiver)
