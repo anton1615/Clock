@@ -2,7 +2,7 @@
 
 ## 專案現況
 - **專案名稱**: Clock
-- **目前版本**: v1.1.7 (Background Precision & UI Fixes)
+- **目前版本**: v1.1.7 (Background Precision & Deduplication)
 - **核心技術**: .NET 10, WPF, Android Native (Kotlin + Compose), SignalR, mDNS
 - **開發日期**: 2026-02-01
 
@@ -11,58 +11,41 @@
 - clock.Lib: 核心邏輯、模型與 ViewModel。已重構為純 .NET 10 Library，與 UI 完全解耦。
 - clock-android: Android 原生專案 (Android Studio)，負責手機端同步顯示、背景服務與本地設定。
 - Tests/clock.IntegrationTests: 整合測試，包含計時器、狀態同步、設定持久化與網路診斷測試。
-- conductor/: AI 導引開發軌跡資料夾 (已設為 Git Ignore，僅留存於本地環境)。
+- conductor/: AI 導引開發軌跡資料夾 (包含詳細的 Track 紀錄與 Plan/Spec)。
 
 ## 核心功能紀錄
 1. **動態主題背景**: 背景顏色隨階段變動，邏輯：計算 Bar 顏色之 30% 亮度的深色調。
-2. **Android 同步 (v1.1.0)**:
-   - **自動發現**: 透過 mDNS 搜尋同 LAN 下的 PC。
-   - **即時同步**: 使用 SignalR (Port 8888) 達成低於 100ms 的時間與狀態對齊。
-   - **環形 UI**: 手機端採用類系統計時器的圓形進度條設計。
-   - **雙模式**: 支援連線同步模式與離線獨立計時模式。
-3. **高精度計時**: PC 端改用 UTC 時間戳絕對座標計算，徹底解決 DispatcherTimer 導致的 Drift 偏差。
-4. **背景同步與通知 (v1.1.1)**:
-   - **前台服務 (Foreground Service)**: 確保 Android 端在背景仍能維持連線，不被系統掛起。
-   - **通知欄倒數**: 使用 Chronometer API 實現極低功耗的即時秒數顯示（修正為 Wall Clock 基準）。
-   - **系統音效集成**: Android 自動調用系統通知音，解決版權問題。
-   - **控制台切換**: PC 端支援在設定中隱藏/顯示 CMD 黑框。
-5. **進階自訂與優化 (v1.1.2)**:
-   - **本地設定頁面**: Android 端可自訂工作/休息時長、強調色與音效（同步模式下自動鎖定時長調整）。
-   - **音效管理**: 支援系統鈴聲選擇器，可顯示音效名稱並支援靜音模式。
-   - **螢幕管理**: 加入「螢幕常亮 (Keep Screen On)」選項。
-   - **CI/CD 優化**: 自動產生單一執行檔 (clock-win-x64.exe) 與 APK，移除 PDB 並開啟壓縮。
-6. **安全性與隱私強化 (v1.1.3)**:
-   - **設定遷移**: PC 端 `setting.json` 移至 `%LocalAppData%\Clock`，符合 Windows 規範並支援自動遷移。
-   - **網路安全**: PC 端縮減 CORS 政策權限；Android 端強化 IP/Hostname 驗證以防範 SSRF。
-   - **防禦性程式碼**: 加入 Hex 顏色格式驗證，防止因設定錯誤導致的啟動閃退。
-   - **隱私控制**: Android 通知可見性調為 `PRIVATE`，保護鎖屏資訊。
-   - **資源回收**: Android 端連線後自動停止 mDNS 掃描，節省電力與 WiFi 資源。
-7. **電力、邏輯與生命週期優化 (v1.1.5)**:
-   - **智慧刷新率 (Adaptive Ticking)**: 根據 App 狀態動態調整 (前台 50ms / 背景 1s / 螢幕關閉 1s 喚醒)。
-8. **可靠性與同步修復 (v1.1.6)**:
-   - **修正螢幕關閉時間凍結**: 將時間基準 (`lastTime`) 全域化並縮短休眠間隔至 1 秒，確保背景與螢幕關閉時計時不中斷。
-   - **智慧音效重對齊**: 監聽 PC 同步狀態，當剩餘秒數發生超過 2 秒的跳變時自動重新預約音效。
-   - **健全生命週期退出**: 實作 `onTaskRemoved`，提供更直覺的退出體驗。
-9. **背景精準度與 UI 修復 (v1.1.7)**:
-   - **AlarmManager 集成**: 引入 `setExactAndAllowWhileIdle` 確保在 Doze 模式下音效依然能精準響起。
-   - **負數箝位 (Clamping)**: 全面修正 `remainingSeconds` 的賦值邏輯，防止出現 `-1` 或負數顯示。
-   - **權限宣告**: 加入 `SCHEDULE_EXACT_ALARM` 以支援 Android 14 高精度定時。
+2. **Android 同步 (v1.1.0)**: 透過 mDNS 自動發現，使用 SignalR 實時同步。
+3. **高精度計時**: PC 端採用 UTC 時間戳絕對座標，手機端使用 EMA 補償網路延遲與時鐘偏差。
+4. **背景同步與通知 (v1.1.1)**: 使用 Foreground Service 維持連線，Chronometer API 顯示通知欄倒數。
+5. **進階自訂 (v1.1.2)**: Android 端本地設定頁面，支援時長、顏色與系統音效選擇。
+6. **安全性強化 (v1.1.3)**: PC 設定遷移至 LocalAppData，Android 加入 IP/Hostname 驗證。
+7. **電力優化 (v1.1.5)**: Adaptive Ticking (前台 50ms / 背景 1s / 螢幕關閉 1s)。
+8. **可靠性修復 (v1.1.6)**: 修正螢幕關閉時間凍結，實作音效重對齊 (Drift > 2s 重新預約)。
+9. **背景與 UI 硬化 (v1.1.7)**:
+   - **系統級音效預約**: 使用 `AlarmManager.setExactAndAllowWhileIdle` 解決 Doze 模式下協程被凍結導致的漏響問題。
+   - **音效去重機制**: 實作 `lastPlayedTargetTime` 去重。當 App 從背景恢復時，若 Coroutine 與 AlarmManager 觸發時間點重疊，會自動跳過重複音效。
+   - **數值箝位 (Clamping)**: 全面加入 `Math.max(0.0, ...)`，消除同步時產生的負數顯示與 `-1` 閃爍。
+   - **本地目標時間機制**: Android Engine 改用 `localTargetEndTime` 模型，確保本地模式下背景掛起後的恢復準確度。
+   - **服務生存強化**: 移除 `onTaskRemoved` 中的 `stopSelf`。即使使用者滑掉 App，Foreground Service 仍會維持運作。
+   - **Drift 門檻最佳化**: 引入 2 秒 Drift 門檻（基於絕對目標時間），降低 `AlarmManager` 更新頻率。
 
 ## 重要技術決策
-- **核心抽象化**: 將計時器 (ITimer)、音效 (IAudioService) 與 UI 控制 (IUIService) 介面化，確保 clock.Lib 可跨平台重用。
-- **單一事實來源**: 採用 Round-trip 同步邏輯（方案 B），同步時以 PC 為準，手機端作為遠端顯示與控制器。
-- **Android 本地持久化**: 使用 SharedPreferences 與 SettingsRepository 儲存手機端專屬設定。
-- **網路對時**: 引入 TargetEndTimeUnix (UTC) 以補償網路傳輸延遲，手機端使用 EMA (指數移動平均) 進行平滑校正。
-- **安全性優先**: 設定檔儲存、網路連線與系統腳本均加入驗證與轉義邏輯，確保系統強健性。
+- **雙軌音效觸發 (Dual-Track)**: 
+    - **協程 (Coroutine)**: 處理 App 活躍時的低延遲觸發（使用者空間輕量級執行緒）。
+    - **AlarmManager**: 處理 App 休眠/凍結時的系統級喚醒（OS Kernel 服務）。
+- **單一事實來源**: 以 PC 為同步基準，手機端執行 Round-trip 同步邏輯。
+- **負數保護機制**: 針對分散式系統的時間不對稱性，在所有賦值路徑強制執行下限檢查。
+- **Android 14 合規**: 明確宣告並處理 `SCHEDULE_EXACT_ALARM` 權限。
 
 ## 網路配置要求
-- **連接埠**: 必須允許 TCP 8888 (SignalR)。
-- **防火牆**: 在「公用網路」下需手動在進階防火牆中勾選「公用」設定檔以放行入站連線。
+- **連接埠**: TCP 8888 (SignalR)。
+- **防火牆**: 需放行「公用網路」入站規則。
 
 ## 待辦事項/未來方向
-- [ ] 優化 mDNS 解析 (Resolve) 在不同路由器下的成功率。
+- [ ] 優化 mDNS 解析在複雜路由器環境下的成功率。
+- [ ] Android 鎖定畫面通知在不同廠牌 (如 Sony) 的顯示相容性優化。
 - [ ] 考慮加入自訂透明度動畫。
-- [ ] 優化 Android 鎖定畫面通知在特定廠牌 (如 Sony) 的顯示相容性。
 
 ---
-*此文件由 Gemini CLI 自動生成，作為 reload memory 的基礎。*
+*此文件由 Gemini CLI 自動生成，作為專案狀態的「永久記憶」。*

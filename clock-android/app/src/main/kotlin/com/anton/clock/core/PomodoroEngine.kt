@@ -30,12 +30,13 @@ class PomodoroEngine(
 
     private var nextWorkMins: Int = workDurationMinutes
     private var nextBreakMins: Int = breakDurationMinutes
+    private var localTargetEndTime: Long = 0L
 
     fun setForeground(foreground: Boolean) { 
         val changed = _isForeground.value != foreground
         _isForeground.value = foreground 
         if (changed) {
-            if (foreground) refreshTimeFromTarget()
+            refreshTimeFromTarget()
             start() // 重啟 Loop 以更新 Delay 並中斷舊延遲
         }
     }
@@ -44,7 +45,7 @@ class PomodoroEngine(
         val changed = _isScreenOn.value != on
         _isScreenOn.value = on 
         if (changed) {
-            if (on) refreshTimeFromTarget()
+            refreshTimeFromTarget()
             start() // 重啟 Loop 以更新 Delay 並中斷舊延遲
         }
     }
@@ -66,14 +67,15 @@ class PomodoroEngine(
      * 核心對時邏輯：根據 TargetEndTime 與本地時間差計算剩餘秒數
      */
     private fun refreshTimeFromTarget() {
-        val state = lastState ?: return
-        if (_isSynced.value && !state.isPaused && state.targetEndTimeUnix > 0) {
+        if (_isSynced.value && lastState != null && !lastState!!.isPaused && lastState!!.targetEndTimeUnix > 0) {
             val now = System.currentTimeMillis()
             val adjustedNow = now.toDouble() + (clockOffsetRolling ?: 0.0)
-            val diff = state.targetEndTimeUnix.toDouble() - adjustedNow
+            val diff = lastState!!.targetEndTimeUnix.toDouble() - adjustedNow
             _remainingSeconds.value = Math.max(0.0, diff / 1000.0)
-        } else {
-            _remainingSeconds.value = Math.max(0.0, state.remainingSeconds)
+        } else if (!_isPaused.value && localTargetEndTime > 0) {
+            val now = System.currentTimeMillis()
+            val diff = (localTargetEndTime - now) / 1000.0
+            _remainingSeconds.value = Math.max(0.0, diff)
         }
     }
 
@@ -166,10 +168,13 @@ class PomodoroEngine(
 
     fun localTogglePause() { 
         val newPaused = !_isPaused.value
+        _isPaused.value = newPaused
         if (!newPaused) {
             lastTime = System.currentTimeMillis() // 恢復執行前重置時間點
+            localTargetEndTime = System.currentTimeMillis() + (_remainingSeconds.value * 1000).toLong()
+        } else {
+            localTargetEndTime = 0L
         }
-        _isPaused.value = newPaused
         start() // 切換暫停時重啟 Loop
     }
 
@@ -186,6 +191,26 @@ class PomodoroEngine(
         _isPaused.value = startPaused
         lastState = null
         clockOffsetRolling = null
+        
+        if (!startPaused) {
+            localTargetEndTime = System.currentTimeMillis() + (_remainingSeconds.value * 1000).toLong()
+        } else {
+            localTargetEndTime = 0L
+        }
+        
         start() // 確保重啟 Loop
+    }
+
+    /**
+     * 獲取當前有效的目標結束時間 (Unix MS)
+     */
+    fun getTargetEndTimeUnix(): Long {
+        return if (_isSynced.value && lastState != null) {
+            lastState!!.targetEndTimeUnix
+        } else if (!_isPaused.value && localTargetEndTime > 0) {
+            localTargetEndTime
+        } else {
+            0L
+        }
     }
 }

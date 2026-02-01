@@ -11,8 +11,8 @@ android {
         applicationId = "com.anton.clock"
         minSdk = 24
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.1.5"
+        versionCode = 1
+        versionName = "1.1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

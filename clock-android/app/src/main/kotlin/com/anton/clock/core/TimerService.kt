@@ -44,7 +44,8 @@ class TimerService : Service() {
     private val NOTIFICATION_ID = 888
 
     private var soundJob: Job? = null
-    private var lastScheduledSeconds: Double = 0.0
+    private var lastScheduledTargetEnd: Long = 0L
+    private var lastPlayedTargetTime: Long = 0L
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -125,10 +126,10 @@ class TimerService : Service() {
             signalRManager.lastState.collectLatest { state ->
                 state?.let { 
                     engine.applyState(it)
-                    // 檢查時間同步後的偏差，如果落差超過 2 秒，重新預約音效
-                    // 這解決了「連上 PC 後秒數跳變」以及「PC 中途改時間」音效沒重對齊的問題
-                    if (Math.abs(it.remainingSeconds - lastScheduledSeconds) > 2.0) {
-                        Log.d(TAG, "Sync drift detected (${it.remainingSeconds} vs $lastScheduledSeconds), rescheduling sound.")
+                    // 修正：增加門檻至 2 秒，避免頻繁更新造成系統節流
+                    val drift = if (it.isPaused) 0L else Math.abs(it.targetEndTimeUnix - lastScheduledTargetEnd)
+                    if (drift > 2000) { 
+                        Log.d(TAG, "Sync target drift detected ($drift ms), rescheduling sound.")
                         scheduleSound()
                     }
                 }
@@ -137,6 +138,7 @@ class TimerService : Service() {
         
         serviceScope.launch {
             engine.isWorkPhase.collect { 
+                lastScheduledTargetEnd = 0L // 重置以確保切換階段時重新預約
                 scheduleSound()
                 updateNotification()
             }
@@ -157,9 +159,10 @@ class TimerService : Service() {
         startForeground(NOTIFICATION_ID, createNotification())
     }
 
-    private fun getSoundPendingIntent(): PendingIntent {
+    private fun getSoundPendingIntent(targetTime: Long): PendingIntent {
         val intent = Intent(this, TimerService::class.java).apply {
             action = ACTION_TRIGGER_SOUND
+            putExtra("TARGET_TIME", targetTime)
         }
         return PendingIntent.getService(
             this, 1, intent, 
@@ -168,58 +171,52 @@ class TimerService : Service() {
     }
 
     private fun scheduleSound() {
+        val targetEndTime = engine.getTargetEndTimeUnix()
+        
+        // 如果目標跟上次預約的一樣，且已經有 Job 或 Alarm 在跑，就不用動
+        if (targetEndTime > 0 && targetEndTime == lastScheduledTargetEnd && (soundJob?.isActive == true)) {
+            return
+        }
+
         soundJob?.cancel()
-        alarmManager.cancel(getSoundPendingIntent())
+        alarmManager.cancel(getSoundPendingIntent(lastScheduledTargetEnd))
         
         val isPaused = engine.isPaused.value
-        if (isPaused) {
-            Log.d(TAG, "Timer paused, sound scheduling cancelled.")
-            lastScheduledSeconds = 0.0
+        if (isPaused || targetEndTime <= 0) {
+            Log.d(TAG, "Timer paused or no target, sound scheduling cancelled.")
+            lastScheduledTargetEnd = 0L
             return
         }
 
         val remainingSecs = engine.remainingSeconds.value
         val remainingMillis = (remainingSecs * 1000.0).toLong()
-        if (remainingMillis <= 0) {
-            lastScheduledSeconds = 0.0
+        if (remainingMillis < 100) {
+            lastScheduledTargetEnd = 0L
             return
         }
 
-        lastScheduledSeconds = remainingSecs
-        Log.d(TAG, "Scheduling sound in ${remainingMillis}ms (AlarmManager + Coroutine)")
+        lastScheduledTargetEnd = targetEndTime
+        Log.d(TAG, "Scheduling sound for target $targetEndTime in ${remainingMillis}ms")
         
         // 1. AlarmManager 保險 (螢幕關閉、Doze 模式必備)
         val triggerTime = SystemClock.elapsedRealtime() + remainingMillis
+        val pi = getSoundPendingIntent(targetEndTime)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    triggerTime,
-                    getSoundPendingIntent()
-                )
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
             } else {
-                alarmManager.setExact(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    triggerTime,
-                    getSoundPendingIntent()
-                )
+                alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
             }
         } catch (e: SecurityException) {
-            Log.e(TAG, "Failed to set exact alarm (permission missing?), falling back to non-exact.", e)
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                triggerTime,
-                getSoundPendingIntent()
-            )
+            alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
         }
 
         // 2. Coroutine delay (App 活著時的快速反應)
         soundJob = serviceScope.launch {
             delay(remainingMillis)
-            // 再次檢查是否仍未暫停
             if (!engine.isPaused.value) {
-                Log.d(TAG, "Coroutine sound trigger fired!")
-                playDefaultNotificationSound()
+                Log.d(TAG, "Coroutine sound trigger fired for $targetEndTime")
+                playSound(targetEndTime, "Coroutine")
             }
         }
     }
@@ -229,6 +226,17 @@ class TimerService : Service() {
         engine.updateDurations(newSettings.workDuration, newSettings.breakDuration)
         scheduleSound() // 更新時長後重新預約
         updateNotification()
+    }
+
+    private fun playSound(targetTime: Long, source: String) {
+        // 去重機制：如果該目標時間已經在 2 秒內播過了，就跳過
+        if (targetTime > 0 && Math.abs(targetTime - lastPlayedTargetTime) < 2000) {
+            Log.d(TAG, "Sound already played for target $targetTime via $source, skipping.")
+            return
+        }
+        lastPlayedTargetTime = targetTime
+        Log.d(TAG, "Playing sound for target $targetTime (source: $source)")
+        playDefaultNotificationSound()
     }
 
     private fun playDefaultNotificationSound() {
@@ -242,8 +250,16 @@ class TimerService : Service() {
                 Uri.parse(soundUriStr)
             }
             val ringtone = RingtoneManager.getRingtone(applicationContext, uri)
-            if (ringtone != null && !ringtone.isPlaying) {
-                ringtone.play()
+            if (ringtone != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    ringtone.audioAttributes = android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                }
+                if (!ringtone.isPlaying) {
+                    ringtone.play()
+                }
             }
         } catch (e: Exception) {
             Log.e("TimerService", "Failed to play notification sound", e)
@@ -302,16 +318,17 @@ class TimerService : Service() {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
 
         // 倒數計時邏輯 (使用 Wall Clock Timebase)
-        if (!isPaused) {
-            val remainingMillis = (engine.remainingSeconds.value * 1000.0).toLong()
+        val remainingSecs = Math.max(0.0, engine.remainingSeconds.value)
+        if (!isPaused && remainingSecs > 0.5) { 
+            val remainingMillis = (remainingSecs * 1000.0).toLong()
             val targetTime = System.currentTimeMillis() + remainingMillis 
             builder.setUsesChronometer(true)
             builder.setChronometerCountDown(true)
             builder.setWhen(targetTime)
         } else {
             builder.setUsesChronometer(false)
-            val mins = (engine.remainingSeconds.value / 60).toInt()
-            val secs = (engine.remainingSeconds.value % 60).toInt()
+            val mins = (remainingSecs / 60).toInt()
+            val secs = (remainingSecs % 60).toInt()
             builder.setContentText("$statusText • ${String.format("%02d:%02d", mins, secs)}")
         }
 
@@ -336,23 +353,30 @@ class TimerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_TRIGGER_SOUND) {
-            Log.d(TAG, "Sound triggered via AlarmManager action")
-            playDefaultNotificationSound()
+            val targetTime = intent.getLongExtra("TARGET_TIME", 0L)
+            Log.d(TAG, "Sound triggered via AlarmManager for target $targetTime")
+            playSound(targetTime, "AlarmManager")
+            
+            // 如果是在 Local 模式 (未連線)，AlarmManager 到期代表階段結束，必須主動切換
+            if (!engine.isSynced.value && !engine.isPaused.value) {
+                Log.d(TAG, "Local mode: Alarm triggered phase toggle")
+                engine.localTogglePhase()
+            }
         }
         return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        Log.d(TAG, "Task removed (app swiped away). Stopping service.")
-        stopSelf() // 徹底停止服務並移除通知
+        Log.d(TAG, "Task removed (app swiped away). Keeping service running in background.")
+        // 不再呼叫 stopSelf()，確保背景同步與鬧鐘繼續運作
     }
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(screenReceiver)
         soundJob?.cancel() // 明確取消音效預約
-        alarmManager.cancel(getSoundPendingIntent())
+        alarmManager.cancel(getSoundPendingIntent(lastScheduledTargetEnd))
         serviceScope.cancel()
         signalRManager.disconnect()
     }

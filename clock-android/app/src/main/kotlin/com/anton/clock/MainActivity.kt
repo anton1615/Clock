@@ -391,7 +391,8 @@ fun TimerScreen(
     onOpenSetup: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
-    val remainingSeconds by engine.remainingSeconds.collectAsState()
+    val remainingSecondsRaw by engine.remainingSeconds.collectAsState()
+    val remainingSeconds = Math.max(0.0, remainingSecondsRaw)
     val isWorkPhase by engine.isWorkPhase.collectAsState()
     val isPaused by engine.isPaused.collectAsState()
     
