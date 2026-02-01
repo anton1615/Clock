@@ -2,10 +2,10 @@
 
 ## Phase 1: Infrastructure & Lifecycle Management
 - [x] Task: Android - Add `androidx.lifecycle:lifecycle-process` dependency to `build.gradle.kts`. [93bd5c2]
-- [ ] Task: Android - Create `AppLifecycleObserver` class implementing `LifecycleEventObserver`.
-    - [ ] Sub-task: Implement `onStateChanged` to detect `ON_START` and `ON_STOP`.
-    - [ ] Sub-task: Create a singleton or shared mechanism to expose `isForeground` state to `PomodoroEngine`.
-- [ ] Task: Android - Integrate `ProcessLifecycleOwner` in `TimerApplication` (or `MainActivity` if Application class doesn't exist).
+- [x] Task: Android - Create `AppLifecycleObserver` class implementing `LifecycleEventObserver`. [aa28168]
+    - [x] Implement `onStateChanged` to detect `ON_START` and `ON_STOP`.
+    - [x] Create a singleton or shared mechanism to expose `isForeground` state to `PomodoroEngine`.
+- [x] Task: Android - Integrate `ProcessLifecycleOwner` in `TimerApplication`. [a0f4ee1]
 - [ ] Task: Conductor - User Manual Verification 'Infrastructure & Lifecycle Management' (Protocol in workflow.md) [checkpoint: ]
 
 ## Phase 2: Core Logic Optimization (Adaptive Ticking)

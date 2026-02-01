@@ -15,3 +15,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 - [x] **Track: 安全性與隱私強化 (Security & Privacy Hardening)**
 *Link: [./tracks/security-hardening_20260131/](./tracks/security-hardening_20260131/)*
+---
+
+- [~] **Track: Android Power Optimization (Smart Delay & Scheduled Sound)**
+*Link: [./tracks/android-power-optimization_20260201/](./tracks/android-power-optimization_20260201/)*
