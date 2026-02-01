@@ -1,8 +1,9 @@
 package com.anton.clock.core
 
-import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Binder
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.collectLatest
 import com.anton.clock.models.AppSettings
 
 class TimerService : Service() {
+    private val TAG = "TimerService"
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val binder = TimerBinder()
     
@@ -32,6 +34,22 @@ class TimerService : Service() {
     private var isBound = false
     private val CHANNEL_ID = "clock_sync_channel_v3" // 更新 ID
     private val NOTIFICATION_ID = 888
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    Log.d(TAG, "Screen OFF detected")
+                    engine.setScreenOn(false)
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    Log.d(TAG, "Screen ON detected")
+                    engine.setScreenOn(true)
+                    updateNotification() // 螢幕開啟時立即刷新通知
+                }
+            }
+        }
+    }
 
     inner class TimerBinder : Binder() {
         fun getService(): TimerService = this@TimerService
@@ -54,6 +72,20 @@ class TimerService : Service() {
         
         createNotificationChannel()
         engine.start()
+        
+        // 註冊螢幕廣播
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+        }
+        registerReceiver(screenReceiver, filter)
+
+        // 監聽 App 生命週期狀態並傳給引擎
+        serviceScope.launch {
+            AppLifecycleObserver.getInstance().isForeground.collectLatest { isForeground ->
+                engine.setForeground(isForeground)
+            }
+        }
         
         // 套用初始設定
         engine.updateDurations(currentSettings.workDuration, currentSettings.breakDuration)
@@ -157,11 +189,13 @@ class TimerService : Service() {
         val isWork = engine.isWorkPhase.value
         val isPaused = engine.isPaused.value
         val isSynced = engine.isSynced.value
+        val isScreenOn = engine.isScreenOn.value
         
         val phaseName = if (isWork) "WORKING" else "BREAKING"
         val statusText = buildString {
             if (isPaused) append("PAUSED") else append("RUNNING")
             if (isSynced) append(" • SYNCED")
+            if (!isScreenOn) append(" • Lpm") // Low Power Mode indicator
         }
         
         val baseColorHex = if (isWork) currentSettings.workColor else currentSettings.breakColor
@@ -220,6 +254,7 @@ class TimerService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterReceiver(screenReceiver)
         serviceScope.cancel()
         signalRManager.disconnect()
     }
