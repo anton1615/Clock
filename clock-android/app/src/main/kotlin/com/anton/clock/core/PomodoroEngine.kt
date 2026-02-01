@@ -31,8 +31,23 @@ class PomodoroEngine(
     private var nextWorkMins: Int = workDurationMinutes
     private var nextBreakMins: Int = breakDurationMinutes
 
-    fun setForeground(foreground: Boolean) { _isForeground.value = foreground }
-    fun setScreenOn(on: Boolean) { _isScreenOn.value = on }
+    fun setForeground(foreground: Boolean) { 
+        val changed = _isForeground.value != foreground
+        _isForeground.value = foreground 
+        if (changed && foreground) {
+            // 回到前台時立即對時一次，避免看到舊時間
+            refreshTimeFromTarget()
+        }
+    }
+    
+    fun setScreenOn(on: Boolean) { 
+        val changed = _isScreenOn.value != on
+        _isScreenOn.value = on 
+        if (changed && on) {
+            // 螢幕開啟時立即對時一次
+            refreshTimeFromTarget()
+        }
+    }
 
     fun updateDurations(work: Int, breakM: Int) {
         nextWorkMins = work
@@ -45,6 +60,21 @@ class PomodoroEngine(
     private var clockOffsetRolling: Double? = null
     private val smoothingFactor = 0.15 // 降低一點權重，更穩定
     private var lastState: EngineState? = null
+
+    /**
+     * 核心對時邏輯：根據 TargetEndTime 與本地時間差計算剩餘秒數
+     */
+    private fun refreshTimeFromTarget() {
+        val state = lastState ?: return
+        if (_isSynced.value && !state.isPaused && state.targetEndTimeUnix > 0) {
+            val now = System.currentTimeMillis()
+            val adjustedNow = now.toDouble() + (clockOffsetRolling ?: 0.0)
+            val diff = state.targetEndTimeUnix.toDouble() - adjustedNow
+            _remainingSeconds.value = if (diff > 0) (diff / 1000.0) else 0.0
+        } else {
+            _remainingSeconds.value = state.remainingSeconds
+        }
+    }
 
     fun start() {
         timerJob?.cancel()
@@ -63,19 +93,8 @@ class PomodoroEngine(
                 
                 val now = System.currentTimeMillis()
                 
-                // 如果螢幕關閉且不是暫停狀態，我們不主動遞減時間，
-                // 因為恢復時會透過 TargetTime 重新計算。
-                // 這樣可以完全移除這段時間內的 CPU 運算。
-                
                 if (_isSynced.value && lastState != null) {
-                    val state = lastState!!
-                    if (!state.isPaused && state.targetEndTimeUnix > 0) {
-                        val adjustedNow = now.toDouble() + (clockOffsetRolling ?: 0.0)
-                        val diff = state.targetEndTimeUnix.toDouble() - adjustedNow
-                        _remainingSeconds.value = if (diff > 0) (diff / 1000.0) else 0.0
-                    } else {
-                        _remainingSeconds.value = state.remainingSeconds
-                    }
+                    refreshTimeFromTarget()
                 } else if (!_isPaused.value) {
                     val delta = (now - lastTime) / 1000.0
                     if (_remainingSeconds.value > 0) {
@@ -113,10 +132,8 @@ class PomodoroEngine(
                 }
             }
 
-            // 2. 立即更新 remainingSeconds，確保 UI/Notification 讀取到最新值
-            val adjustedNow = now.toDouble() + (clockOffsetRolling ?: 0.0)
-            val diff = state.targetEndTimeUnix.toDouble() - adjustedNow
-            _remainingSeconds.value = if (diff > 0) (diff / 1000.0) else 0.0
+            // 2. 立即更新 remainingSeconds
+            refreshTimeFromTarget()
         } else {
             // 暫停狀態或無目標時間，直接使用 State 數值
             _remainingSeconds.value = state.remainingSeconds
