@@ -15,6 +15,7 @@ import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -140,9 +141,10 @@ class TimerService : Service() {
         serviceScope.launch {
             engine.isWorkPhase.collect { isWork ->
                 if (lastObservedPhase != null && lastObservedPhase != isWork) {
-                    // 階段切換了！播放「剛結束」階段的音效（對應上一筆預約時間）
-                    // 此處對應 Sync 模式下 PC 切換階段，或手動 Skip 的音效觸發
-                    playSound(lastScheduledTargetEnd, "PhaseTransition")
+                    // 階段切換了！只有在剩餘秒數極小（代表自然結束）時才補播音效，避免手動 Skip 觸發
+                    if (engine.remainingSeconds.value < 1.0) {
+                        playSound(lastScheduledTargetEnd, "NaturalPhaseTransition")
+                    }
                 }
                 lastObservedPhase = isWork
                 lastScheduledTargetEnd = 0L // 重置以確保重新預約
@@ -160,6 +162,20 @@ class TimerService : Service() {
 
         serviceScope.launch {
             engine.isSynced.collectLatest { updateNotification() }
+        }
+
+        // 安全保險：監聽秒數歸零。如果 AlarmManager 遲到，由這裡補位觸發轉場
+        serviceScope.launch {
+            engine.remainingSeconds.collect { secs ->
+                if (secs <= 0.0 && !engine.isPaused.value && !engine.isSynced.value) {
+                    if (lastScheduledTargetEnd > 0) { // 避免初始狀態觸發
+                        Log.d(TAG, "Safety net triggered: Time is 0, forcing transition.")
+                        playSound(lastScheduledTargetEnd, "SafetyLoop")
+                        engine.localTogglePhase()
+                        updateNotification()
+                    }
+                }
+            }
         }
         
         // 啟動前台服務
@@ -242,6 +258,9 @@ class TimerService : Service() {
     }
 
     private fun playSound(targetTime: Long, source: String) {
+        // 喚醒螢幕
+        wakeScreen(3000)
+
         // 去重機制：如果該目標時間已經在 2 秒內播過了，就跳過
         if (targetTime > 0 && Math.abs(targetTime - lastPlayedTargetTime) < 2000) {
             Log.d(TAG, "Sound already played for target $targetTime via $source, skipping.")
@@ -250,6 +269,22 @@ class TimerService : Service() {
         lastPlayedTargetTime = targetTime
         Log.d(TAG, "Playing sound for target $targetTime (source: $source)")
         playDefaultNotificationSound()
+    }
+
+    private fun wakeScreen(durationMs: Long) {
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!powerManager.isInteractive) {
+                val wakeLock = powerManager.newWakeLock(
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    "Clock:WakeUpOnTransition"
+                )
+                wakeLock.acquire(durationMs)
+                Log.d(TAG, "Screen woken up for $durationMs ms")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to wake screen", e)
+        }
     }
 
     private fun playDefaultNotificationSound() {
@@ -332,7 +367,9 @@ class TimerService : Service() {
 
         // 倒數計時邏輯 (使用 Wall Clock Timebase)
         val remainingSecs = Math.max(0.0, engine.remainingSeconds.value)
-        if (!isPaused && remainingSecs > 0.5) { 
+        
+        // 增加更嚴格的判定：剩餘時間小於 1 秒或已暫停，絕對不使用 Chronometer
+        if (!isPaused && remainingSecs > 1.0) { 
             val remainingMillis = (remainingSecs * 1000.0).toLong()
             val targetTime = System.currentTimeMillis() + remainingMillis 
             builder.setUsesChronometer(true)
@@ -340,8 +377,9 @@ class TimerService : Service() {
             builder.setWhen(targetTime)
         } else {
             builder.setUsesChronometer(false)
-            val mins = (remainingSecs / 60).toInt()
-            val secs = (remainingSecs % 60).toInt()
+            val totalSecs = Math.max(0, remainingSecs.toInt())
+            val mins = totalSecs / 60
+            val secs = totalSecs % 60
             builder.setContentText("$statusText • ${String.format("%02d:%02d", mins, secs)}")
         }
 
@@ -368,12 +406,19 @@ class TimerService : Service() {
         if (intent?.action == ACTION_TRIGGER_SOUND) {
             val targetTime = intent.getLongExtra("TARGET_TIME", 0L)
             Log.d(TAG, "Sound triggered via AlarmManager for target $targetTime")
+            
+            // 1. 播放音效 (內含喚醒螢幕)
             playSound(targetTime, "AlarmManager")
             
-            // 如果是在 Local 模式 (未連線)，AlarmManager 到期代表階段結束，必須主動切換
+            // 2. 如果是在 Local 模式 (未連線)，AlarmManager 到期代表階段結束
             if (!engine.isSynced.value && !engine.isPaused.value) {
                 Log.d(TAG, "Local mode: Alarm triggered phase toggle")
+                lastScheduledTargetEnd = 0L // 先重置，防止安全保險重複觸發
                 engine.localTogglePhase()
+                // 強制在主執行緒刷新通知，確保不顯示負數
+                serviceScope.launch(Dispatchers.Main) {
+                    updateNotification()
+                }
             }
         }
         return START_STICKY

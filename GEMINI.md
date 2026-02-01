@@ -2,7 +2,7 @@
 
 ## 專案現況
 - **專案名稱**: Clock
-- **目前版本**: v1.1.11 (Phase Transition Sound Fix)
+- **目前版本**: v1.1.7 (Background Precision & Hardened Sync)
 - **核心技術**: .NET 10, WPF, Android Native (Kotlin + Compose), SignalR, mDNS
 - **開發日期**: 2026-02-01
 
@@ -23,16 +23,14 @@
 7. **電力優化 (v1.1.5)**: Adaptive Ticking (前台 50ms / 背景 1s / 螢幕關閉 1s)。
 8. **可靠性修復 (v1.1.6)**: 修正螢幕關閉時間凍結，實作音效重對齊 (Drift > 2s 重新預約)。
 9. **背景與 UI 硬化 (v1.1.7)**:
-   - **系統級音效預約**: 使用 `AlarmManager.setExactAndAllowWhileIdle` 解決 Doze 模式下協程被凍結導致的漏響問題。
-   - **音效去重機制**: 實作 `lastPlayedTargetTime` 去重。當 App 從背景恢復時，若 Coroutine 與 AlarmManager 觸發時間點重疊，會自動跳過重複音效。
-   - **數值箝位 (Clamping)**: 全面加入 `Math.max(0.0, ...)`，消除同步時產生的負數顯示與 `-1` 閃爍。
-   - **本地目標時間機制**: Android Engine 改用 `localTargetEndTime` 模型，確保本地模式下背景掛起後的恢復準確度。
-   - **服務生存強化**: 移除 `onTaskRemoved` 中的 `stopSelf`。即使使用者滑掉 App，Foreground Service 仍會維持運作。
-   - **Drift 門檻最佳化**: 引入 2 秒 Drift 門檻（基於絕對目標時間），降低 `AlarmManager` 更新頻率。
-10. **階段轉場音效修正 (v1.1.11)**:
-    - **移除引擎自切換**: 解決 `PomodoroEngine` 內部循環與 `TimerService` 鬧鐘的競爭問題，防止因 Loop 搶先切換導致即將播放的音效任務被 Cancel。
-    - **轉場偵測播放**: 在 `isWorkPhase` 監聽器中實作 `lastObservedPhase` 檢查，確保無論是本地計時到期、手動 Skip 還是 PC 端同步切換，都能正確觸發上一階段的結束音效。
-    - **順序保證**: 嚴格執行「播放音效 -> 切換階段 -> 預約下一次」的執行序鏈，徹底解決黑畫面切換時無聲的問題。
+   - **系統級音效預約**: 使用 `AlarmManager.setExactAndAllowWhileIdle` 解決 Doze 模式。
+   - **音效去重機制**: 實作 `lastPlayedTargetTime` 去重，解決背景恢復時的重複音效。
+   - **數值箝位 (Clamping)**: 徹底封殺 `00:-1` 顯示，通知欄小於 1s 自動轉為靜態。
+   - **本地目標時間機制**: 改用 `localTargetEndTime` 模型，確保背景掛起後的恢復準確度。
+   - **服務生存強化**: 移除 `onTaskRemoved` 的 `stopSelf`，確保滑掉 App 後計時繼續。
+   - **黑畫面喚醒**: 實作 `wakeScreen(3s)`，在轉場音效播放時自動點亮螢幕。
+   - **手動 Skip 靜音**: 加入剩餘秒數判定，確保手動跳過階段時不響鈴。
+   - **安全轉場保險 (Safety Net)**: 在 `TimerService` 監聽秒數歸零。若 `AlarmManager` 延遲，Service 會強制播放音效並切換階段，防止卡在 0 秒。
 
 ## 重要技術決策
 - **雙軌音效觸發 (Dual-Track)**: 
