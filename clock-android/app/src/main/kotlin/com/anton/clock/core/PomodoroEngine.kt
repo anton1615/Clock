@@ -109,11 +109,8 @@ class PomodoroEngine(
                     if (newVal > 0) {
                         _remainingSeconds.value = newVal
                     } else {
-                        // 倒數結束，自動切換階段 (離線模式)
+                        // 倒數結束，僅設為 0，不再主動切換階段，交由 Service 處理音效後切換
                         _remainingSeconds.value = 0.0
-                        lastTime = now // 更新時間基準，避免切換後 delta 累計
-                        localTogglePhase()
-                        return@launch // 跳出舊 Loop，localTogglePhase 會啟動新的
                     }
                 }
                 lastTime = now

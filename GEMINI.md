@@ -2,14 +2,14 @@
 
 ## 專案現況
 - **專案名稱**: Clock
-- **目前版本**: v1.1.7 (Background Precision & Deduplication)
+- **目前版本**: v1.1.11 (Phase Transition Sound Fix)
 - **核心技術**: .NET 10, WPF, Android Native (Kotlin + Compose), SignalR, mDNS
 - **開發日期**: 2026-02-01
 
 ## 專案結構
 - clock: WPF 視圖層、通訊服務器實作與程式入口。支援 WinExe 模式與動態控制台分配。
 - clock.Lib: 核心邏輯、模型與 ViewModel。已重構為純 .NET 10 Library，與 UI 完全解耦。
-- clock-android: Android 原生專案 (Android Studio)，負責手機端同步顯示、背景服務與本地設定。
+- clock-android: Android 原生專案 (Android Studio)，負責手機端同步顯示、服務與本地設定。
 - Tests/clock.IntegrationTests: 整合測試，包含計時器、狀態同步、設定持久化與網路診斷測試。
 - conductor/: AI 導引開發軌跡資料夾 (包含詳細的 Track 紀錄與 Plan/Spec)。
 
@@ -29,6 +29,10 @@
    - **本地目標時間機制**: Android Engine 改用 `localTargetEndTime` 模型，確保本地模式下背景掛起後的恢復準確度。
    - **服務生存強化**: 移除 `onTaskRemoved` 中的 `stopSelf`。即使使用者滑掉 App，Foreground Service 仍會維持運作。
    - **Drift 門檻最佳化**: 引入 2 秒 Drift 門檻（基於絕對目標時間），降低 `AlarmManager` 更新頻率。
+10. **階段轉場音效修正 (v1.1.11)**:
+    - **移除引擎自切換**: 解決 `PomodoroEngine` 內部循環與 `TimerService` 鬧鐘的競爭問題，防止因 Loop 搶先切換導致即將播放的音效任務被 Cancel。
+    - **轉場偵測播放**: 在 `isWorkPhase` 監聽器中實作 `lastObservedPhase` 檢查，確保無論是本地計時到期、手動 Skip 還是 PC 端同步切換，都能正確觸發上一階段的結束音效。
+    - **順序保證**: 嚴格執行「播放音效 -> 切換階段 -> 預約下一次」的執行序鏈，徹底解決黑畫面切換時無聲的問題。
 
 ## 重要技術決策
 - **雙軌音效觸發 (Dual-Track)**: 

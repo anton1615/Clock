@@ -46,6 +46,7 @@ class TimerService : Service() {
     private var soundJob: Job? = null
     private var lastScheduledTargetEnd: Long = 0L
     private var lastPlayedTargetTime: Long = 0L
+    private var lastObservedPhase: Boolean? = null
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -137,8 +138,14 @@ class TimerService : Service() {
         }
         
         serviceScope.launch {
-            engine.isWorkPhase.collect { 
-                lastScheduledTargetEnd = 0L // 重置以確保切換階段時重新預約
+            engine.isWorkPhase.collect { isWork ->
+                if (lastObservedPhase != null && lastObservedPhase != isWork) {
+                    // 階段切換了！播放「剛結束」階段的音效（對應上一筆預約時間）
+                    // 此處對應 Sync 模式下 PC 切換階段，或手動 Skip 的音效觸發
+                    playSound(lastScheduledTargetEnd, "PhaseTransition")
+                }
+                lastObservedPhase = isWork
+                lastScheduledTargetEnd = 0L // 重置以確保重新預約
                 scheduleSound()
                 updateNotification()
             }
@@ -217,6 +224,12 @@ class TimerService : Service() {
             if (!engine.isPaused.value) {
                 Log.d(TAG, "Coroutine sound trigger fired for $targetEndTime")
                 playSound(targetEndTime, "Coroutine")
+                
+                // 如果是在 Local 模式 (未連線)，由 Coroutine 負責觸發階段切換
+                if (!engine.isSynced.value) {
+                    Log.d(TAG, "Local mode: Coroutine triggered phase toggle")
+                    engine.localTogglePhase()
+                }
             }
         }
     }
