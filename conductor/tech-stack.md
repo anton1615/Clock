@@ -30,10 +30,9 @@
 ## Android 實作
 *   **Foreground Service**: 使用前台服務，確保與 PC 端連線不中斷。
 *   **Single Target Engine**: 捨棄 Loop 邏輯，改用 `TargetEndTime - Now` 之被動計算架構，確保物理時間同步。
-*   **MediaPlayer**: 使用 `MediaPlayer` 取代 RingtoneManager，並設定 `USAGE_MEDIA` 讓音效受媒體音量控制。
+*   **MediaPlayer**: 使用 `MediaPlayer` 取代 RingtoneManager，採 `prepareAsync()` 異步準備模式，確保音訊系統延遲不阻塞計時器轉場。
 *   **Adaptive Ticking**: 根據 App 狀態動態調整頻率：前台 (50ms)、背景且亮屏 (1s)、黑畫面 (None)。
-*   **AlarmManager & WakeLock**: 使用 `AlarmManager` 進行系統級轉場調度，配合 `WakeLock` 在黑畫面轉場時點亮螢幕。
-*   **Sound Deduplication**: 實作 `lastPlayedTargetTime` 鎖定機制，解決背景喚醒導致的重複音效問題。
+*   **AlarmManager & WakeLock**: 使用 `AlarmManager` 進行系統級轉場調度，配合 `WakeLock` 在黑畫面轉場時點亮螢幕。轉場優先權高於音訊播放。*   **Sound Deduplication**: 實作 `lastPlayedTargetTime` 鎖定機制，解決背景喚醒導致的重複音效問題。
 *   **Lifecycle Monitoring**: 使用 `ProcessLifecycleOwner` 追蹤 App 前背景狀態。
 
 ## 安全性與隱私

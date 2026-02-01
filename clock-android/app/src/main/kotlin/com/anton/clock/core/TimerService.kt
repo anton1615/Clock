@@ -207,16 +207,20 @@ class TimerService : Service() {
      * 核心轉場處理：播放音效、喚醒、切換
      */
     private fun handleTransition(targetTime: Long) {
-        // 1. 去重播放與喚醒
-        if (Math.abs(targetTime - lastPlayedTargetTime) > 2000) {
-            lastPlayedTargetTime = targetTime
-            wakeScreen(3000)
-            playSoundViaMediaPlayer()
+        // 1. 【立即執行】本地轉場優先，讓 UI 數字與通知列立刻動起來，不等待音訊系統
+        if (!engine.isSynced.value && !engine.isPaused.value) {
+            Log.d(TAG, "Transitioning phase immediately for target $targetTime")
+            engine.localTogglePhase()
+            updateNotification()
         }
 
-        // 2. 本地轉場
-        if (!engine.isSynced.value && !engine.isPaused.value) {
-            engine.localTogglePhase()
+        // 2. 【非同步執行】去重播放與喚醒，避免阻塞主執行緒導致 UI 卡死
+        serviceScope.launch(Dispatchers.Default) {
+            if (targetTime > 0 && Math.abs(targetTime - lastPlayedTargetTime) > 2000) {
+                lastPlayedTargetTime = targetTime
+                wakeScreen(3000)
+                playSoundViaMediaPlayer()
+            }
         }
     }
 
@@ -236,16 +240,23 @@ class TimerService : Service() {
                 setDataSource(applicationContext, uri)
                 setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA) // 強制使用媒體音量
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION) // 改為 SONIFICATION 代表提示音
                         .build()
                 )
-                prepare()
-                start()
-                setOnCompletionListener { it.release() }
+                // 關鍵：使用非同步準備，並在準備好後立即播放，防止阻塞主執行緒
+                setOnPreparedListener { 
+                    it.start()
+                    Log.d(TAG, "MediaPlayer started playing asynchronously")
+                }
+                setOnCompletionListener { 
+                    it.release() 
+                    if (mediaPlayer == it) mediaPlayer = null
+                }
+                prepareAsync() 
             }
         } catch (e: Exception) {
-            Log.e(TAG, "MediaPlayer failed", e)
+            Log.e(TAG, "MediaPlayer initialization failed", e)
         }
     }
 

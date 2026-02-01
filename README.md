@@ -14,6 +14,7 @@ Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 ## 🚀 New in v1.1.8: Unified Target Architecture & Stability
 
 *   **Single Target Model (Android)**: Re-engineered the core timing engine to use a passive "Single Target" calculation. This eliminates all cumulative drift and ensures the phone stays perfectly synced with the physical time or PC host.
+*   **Non-Blocking Transitions**: Fixed a critical bug where audio focus contention (e.g., when playing Spotify) could delay phase transitions by over 10 seconds. The app now prioritizes immediate UI updates and handles audio preparation asynchronously.
 *   **Media Volume Control (Android)**: Switched from Ringtone to `MediaPlayer` using `USAGE_MEDIA`. The countdown sound is now controlled by your phone's **Media Volume** (music/video volume), resolving previous control inconsistencies.
 *   **Intelligent Screen Wake-up**: When a phase transition occurs in the background, the app now automatically **wakes up the screen for 3 seconds** and plays the notification sound, ensuring you see the status change immediately.
 *   **Zero-Loop Power Efficiency**: App internal loops are completely suspended when the screen is off (0% CPU usage). Transitions are driven by system-level hardware alarms via `AlarmManager`.
