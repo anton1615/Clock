@@ -13,7 +13,7 @@ Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
 ## 🚀 New in v1.1.6: Reliability & Sync Fixes
 
-*   **Fixed Screen-Off Time Freeze**: The timer now correctly tracks elapsed time while the screen is off by utilizing a persistent time reference and a 5s "Power-Efficient Tick".
+*   **Fixed Screen-Off Time Freeze**: The timer now correctly tracks elapsed time while the screen is off by utilizing a persistent time reference and a 1s "Power-Efficient Tick".
 *   **Intelligent Sound Re-Sync**: Android now monitors sync drift from the PC. If the remaining time jumps by more than 2 seconds (e.g., during initial connection or manual duration changes), the notification sound is automatically rescheduled to stay perfectly aligned.
 *   **Clean Task Exit**: Swiping the app away from the Android Recents list now properly terminates the background service and removes the notification, ensuring a predictable lifecycle.
 *   **Pause/Resume Robustness**: Improved time tracking logic to prevent "time jumps" when resuming from a paused state or transitioning between power modes.
@@ -23,7 +23,7 @@ Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 *   **Adaptive Ticking (Android)**: Optimized battery usage by adjusting computation frequency based on app state:
     *   **Foreground**: 50ms (for smooth animations).
     *   **Background**: 1s (to update notification bar).
-    *   **Screen Off**: **Power-Efficient Tick** (5s). CPU maintains logic consistency without excessive wakeups.
+    *   **Screen Off**: **Power-Efficient Tick** (1s). CPU maintains logic consistency without excessive wakeups.
 *   **Scheduled Sound Triggers**: Replaced high-frequency polling with a Coroutine-based "Pre-set Alarm" mechanism. Sound triggers accurately even when the CPU is sleeping.
 *   **Automatic Phase Cycling**: Standalone mode now correctly cycles through Work/Break phases without manual intervention.
 *   **Robust Sync Transitions**: 
