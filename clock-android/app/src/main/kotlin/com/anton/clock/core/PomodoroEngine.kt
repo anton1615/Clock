@@ -22,8 +22,17 @@ class PomodoroEngine(
     private val _isSynced = MutableStateFlow(false)
     val isSynced = _isSynced.asStateFlow()
 
+    private val _isForeground = MutableStateFlow(true)
+    val isForeground = _isForeground.asStateFlow()
+
+    private val _isScreenOn = MutableStateFlow(true)
+    val isScreenOn = _isScreenOn.asStateFlow()
+
     private var nextWorkMins: Int = workDurationMinutes
     private var nextBreakMins: Int = breakDurationMinutes
+
+    fun setForeground(foreground: Boolean) { _isForeground.value = foreground }
+    fun setScreenOn(on: Boolean) { _isScreenOn.value = on }
 
     fun updateDurations(work: Int, breakM: Int) {
         nextWorkMins = work
@@ -42,10 +51,21 @@ class PomodoroEngine(
         timerJob = scope.launch {
             var lastTime = System.currentTimeMillis()
             while (isActive) {
-                val currentDelay = if (_isPaused.value) 500L else 50L
+                // 動態調整 Delay
+                val currentDelay = when {
+                    _isPaused.value -> 500L
+                    !_isScreenOn.value -> 2000L // 螢幕關閉時，每 2 秒才檢查一次（極致省電）
+                    !_isForeground.value -> 1000L // 後台時，每 1 秒更新一次（配合通知欄）
+                    else -> 50L // 前台時，50ms（流暢動畫）
+                }
+                
                 delay(currentDelay)
                 
                 val now = System.currentTimeMillis()
+                
+                // 如果螢幕關閉且不是暫停狀態，我們不主動遞減時間，
+                // 因為恢復時會透過 TargetTime 重新計算。
+                // 這樣可以完全移除這段時間內的 CPU 運算。
                 
                 if (_isSynced.value && lastState != null) {
                     val state = lastState!!
@@ -56,9 +76,9 @@ class PomodoroEngine(
                     } else {
                         _remainingSeconds.value = state.remainingSeconds
                     }
-                } else {
+                } else if (!_isPaused.value) {
                     val delta = (now - lastTime) / 1000.0
-                    if (!_isPaused.value && _remainingSeconds.value > 0) {
+                    if (_remainingSeconds.value > 0) {
                         _remainingSeconds.value -= delta
                     }
                 }
