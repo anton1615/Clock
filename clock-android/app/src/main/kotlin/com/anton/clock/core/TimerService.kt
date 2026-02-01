@@ -11,7 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioAttributes
-import android.media.MediaPlayer
+import android.media.SoundPool
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Binder
@@ -42,25 +42,30 @@ class TimerService : Service() {
     private lateinit var alarmManager: AlarmManager
     private var currentSettings = AppSettings()
     
-    private val CHANNEL_ID = "clock_sync_channel_v4"
+    private val CHANNEL_ID = "clock_sync_channel_v7"
     private val NOTIFICATION_ID = 888
+    private val ALARM_REQUEST_CODE = 999 
 
     private var lastScheduledTargetEnd: Long = 0L
     private var lastPlayedTargetTime: Long = 0L
     private var lastObservedPhase: Boolean? = null
     
-    private var mediaPlayer: MediaPlayer? = null
+    private var soundPool: SoundPool? = null
+    private var soundId: Int = -1
     private var updateJob: Job? = null
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    Log.d(TAG, "Screen OFF - Stopping background updates")
+                    Log.d(TAG, "[SCREEN] OFF")
+                    updateNotification() 
                     stopUpdateLoop()
                 }
                 Intent.ACTION_SCREEN_ON -> {
-                    Log.d(TAG, "Screen ON - Resuming background updates")
+                    Log.d(TAG, "[SCREEN] ON")
+                    engine.refreshRemainingSeconds()
+                    updateNotification()
                     startUpdateLoop()
                 }
             }
@@ -79,19 +84,17 @@ class TimerService : Service() {
         alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         currentSettings = settingsRepository.getSettings()
         
+        initSoundPool()
         createNotificationChannel()
         
-        // 註冊螢幕廣播
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
         }
         registerReceiver(screenReceiver, filter)
 
-        // 初始化引擎設定
         engine.updateDurations(currentSettings.workDuration, currentSettings.breakDuration)
         
-        // 監聽 SignalR 與狀態同步
         serviceScope.launch {
             signalRManager.connectionState.collectLatest { state ->
                 val isConnected = state == HubConnectionState.CONNECTED
@@ -108,7 +111,6 @@ class TimerService : Service() {
             signalRManager.lastState.collectLatest { state ->
                 state?.let { 
                     engine.applyState(it)
-                    // 如果目標時間變動超過 2 秒，重新預約
                     if (Math.abs(it.targetEndTimeUnix - lastScheduledTargetEnd) > 2000) {
                         rescheduleAlarm()
                     }
@@ -119,7 +121,6 @@ class TimerService : Service() {
         serviceScope.launch {
             engine.isWorkPhase.collect { isWork ->
                 if (lastObservedPhase != null && lastObservedPhase != isWork) {
-                    // 自然結束或 PC 同步導致的切換
                     if (engine.remainingSeconds.value < 2.0) {
                         handleTransition(engine.getTargetEndTimeUnix())
                     }
@@ -137,9 +138,30 @@ class TimerService : Service() {
             }
         }
 
-        // 啟動更新循環 (如果螢幕開著)
-        startUpdateLoop()
         startForeground(NOTIFICATION_ID, createNotification())
+        startUpdateLoop()
+    }
+
+    private fun initSoundPool() {
+        val attr = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        soundPool = SoundPool.Builder().setMaxStreams(1).setAudioAttributes(attr).build()
+        loadCurrentSound()
+    }
+
+    private fun loadCurrentSound() {
+        val soundUriStr = currentSettings.soundUri
+        if (soundUriStr == "silent" || soundUriStr == null) return
+        
+        try {
+            val uri = if (soundUriStr == "default") RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                      else Uri.parse(soundUriStr)
+            contentResolver.openAssetFileDescriptor(uri, "r")?.use { afd ->
+                soundId = soundPool?.load(afd, 1) ?: -1
+            }
+        } catch (e: Exception) { Log.e(TAG, "SoundPool load failed", e) }
     }
 
     private fun startUpdateLoop() {
@@ -148,7 +170,12 @@ class TimerService : Service() {
             while (isActive) {
                 engine.refreshRemainingSeconds()
                 updateNotification()
-                delay(1000) // 背景/通知欄更新頻率 1s
+                // 前台/亮屏保險：即便鬧鐘遲到，只要還在跑就補位
+                if (engine.remainingSeconds.value <= 0.0 && !engine.isPaused.value && !engine.isSynced.value) {
+                    Log.d(TAG, "[DIAG] Local loop forced transition")
+                    handleTransition(engine.getTargetEndTimeUnix())
+                }
+                delay(1000)
             }
         }
     }
@@ -160,12 +187,7 @@ class TimerService : Service() {
 
     private fun rescheduleAlarm() {
         val targetEndTime = engine.getTargetEndTimeUnix()
-        
-        // 取消舊鬧鐘
-        if (lastScheduledTargetEnd > 0) {
-            val oldPi = getSoundPendingIntent(lastScheduledTargetEnd)
-            alarmManager.cancel(oldPi)
-        }
+        alarmManager.cancel(getSoundPendingIntent(0))
 
         val isPaused = engine.isPaused.value
         if (isPaused || targetEndTime <= 0) {
@@ -178,17 +200,35 @@ class TimerService : Service() {
         if (remainingMillis < 100) return
 
         lastScheduledTargetEnd = targetEndTime
-        val triggerTime = SystemClock.elapsedRealtime() + remainingMillis
+        
+        // 核心修正：使用 setAlarmClock 這是 Android 最高權威的鬧鐘預約，絕對不會被 Pixel 延遲
+        val showIntent = Intent(this, MainActivity::class.java)
+        val showPendingIntent = PendingIntent.getActivity(this, 0, showIntent, PendingIntent.FLAG_IMMUTABLE)
+        
         val pi = getSoundPendingIntent(targetEndTime)
         
+        Log.d(TAG, "[ALARM] Scheduling AlarmClock for $targetEndTime (in ${remainingMillis}ms)")
+        
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
+            // 優先檢查權限 (Android 12+)
+            val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                alarmManager.canScheduleExactAlarms()
+            } else true
+
+            if (hasPermission) {
+                val alarmInfo = AlarmManager.AlarmClockInfo(targetEndTime, showPendingIntent)
+                alarmManager.setAlarmClock(alarmInfo, pi)
             } else {
-                alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
+                Log.w(TAG, "[ALARM] Exact permission missing, using non-exact fallback")
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetEndTime, pi)
             }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "[ALARM] SecurityException while scheduling, using safe fallback", e)
+            // 這是最終保險：setAndAllowWhileIdle 不需要任何權限
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetEndTime, pi)
         } catch (e: Exception) {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
+            Log.e(TAG, "[ALARM] Unexpected error during scheduling", e)
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetEndTime, pi)
         }
     }
 
@@ -197,126 +237,66 @@ class TimerService : Service() {
             action = ACTION_TRIGGER_SOUND
             putExtra("TARGET_TIME", targetTime)
         }
-        return PendingIntent.getService(
-            this, targetTime.hashCode(), intent, 
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        return PendingIntent.getService(this, ALARM_REQUEST_CODE, intent, 
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
-    /**
-     * 核心轉場處理：播放音效、喚醒、切換
-     */
     private fun handleTransition(targetTime: Long) {
-        // 1. 【立即執行】本地轉場優先，讓 UI 數字與通知列立刻動起來，不等待音訊系統
         if (!engine.isSynced.value && !engine.isPaused.value) {
-            Log.d(TAG, "Transitioning phase immediately for target $targetTime")
             engine.localTogglePhase()
-            updateNotification()
         }
 
-        // 2. 【非同步執行】去重播放與喚醒，避免阻塞主執行緒導致 UI 卡死
         serviceScope.launch(Dispatchers.Default) {
             if (targetTime > 0 && Math.abs(targetTime - lastPlayedTargetTime) > 2000) {
                 lastPlayedTargetTime = targetTime
+                Log.d(TAG, "[SOUND] Triggering sound for target $targetTime")
                 wakeScreen(3000)
-                playSoundViaMediaPlayer()
+                if (soundId != -1) soundPool?.play(soundId, 1f, 1f, 1, 0, 1f)
             }
-        }
-    }
-
-    private fun playSoundViaMediaPlayer() {
-        val soundUriStr = currentSettings.soundUri
-        if (soundUriStr == "silent" || soundUriStr == null) return
-        
-        try {
-            val uri = if (soundUriStr == "default") {
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            } else {
-                Uri.parse(soundUriStr)
-            }
-
-            mediaPlayer?.release()
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(applicationContext, uri)
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION) // 改為 SONIFICATION 代表提示音
-                        .build()
-                )
-                // 關鍵：使用非同步準備，並在準備好後立即播放，防止阻塞主執行緒
-                setOnPreparedListener { 
-                    it.start()
-                    Log.d(TAG, "MediaPlayer started playing asynchronously")
-                }
-                setOnCompletionListener { 
-                    it.release() 
-                    if (mediaPlayer == it) mediaPlayer = null
-                }
-                prepareAsync() 
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "MediaPlayer initialization failed", e)
+            withContext(Dispatchers.Main) { updateNotification() }
         }
     }
 
     private fun wakeScreen(durationMs: Long) {
         try {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            val wakeLock = powerManager.newWakeLock(
-                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-                "Clock:WakeUp"
-            )
-            wakeLock.acquire(durationMs)
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val wl = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "Clock:WakeUp")
+            wl.acquire(durationMs)
+            Log.d(TAG, "[SCREEN] Waking up")
         } catch (e: Exception) {}
     }
 
     private fun createNotification(): Notification {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
+        val intent = Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP }
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
         val isWork = engine.isWorkPhase.value
         val isPaused = engine.isPaused.value
         val isSynced = engine.isSynced.value
         val remainingSecs = Math.max(0.0, engine.remainingSeconds.value)
-        
-        val phaseName = if (isWork) "WORKING" else "BREAKING"
-        val statusText = if (isPaused) "PAUSED" else if (isSynced) "SYNCED" else "RUNNING"
-        
         val timeStr = String.format("%02d:%02d", (remainingSecs / 60).toInt(), (remainingSecs % 60).toInt())
-        
+        val statusText = if (isPaused) "PAUSED" else if (isSynced) "SYNCED" else "RUNNING"
         val baseColorHex = if (isWork) currentSettings.workColor else currentSettings.breakColor
-        val darkenedColor = darkenColor(android.graphics.Color.parseColor(baseColorHex), 0.3f)
         
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info) 
-            .setContentTitle(phaseName)
+            .setContentTitle(if (isWork) "WORKING" else "BREAKING")
             .setContentText("$statusText • $timeStr")
-            .setColor(darkenedColor)
+            .setColor(darkenColor(android.graphics.Color.parseColor(baseColorHex), 0.3f))
             .setColorized(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-    }
-
-    private fun darkenColor(color: Int, factor: Float): Int {
-        val a = android.graphics.Color.alpha(color)
-        val r = Math.round(android.graphics.Color.red(color) * factor)
-        val g = Math.round(android.graphics.Color.green(color) * factor)
-        val b = Math.round(android.graphics.Color.blue(color) * factor)
-        return android.graphics.Color.argb(a,
-            Math.min(r, 255),
-            Math.min(g, 255),
-            Math.min(b, 255))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_TRIGGER_SOUND) {
             val targetTime = intent.getLongExtra("TARGET_TIME", 0L)
+            Log.d(TAG, "[ALARM] TRIGGERED at ${System.currentTimeMillis()} for target $targetTime")
             handleTransition(targetTime)
         }
         return START_STICKY
@@ -327,20 +307,31 @@ class TimerService : Service() {
         unregisterReceiver(screenReceiver)
         updateJob?.cancel()
         serviceScope.cancel()
-        mediaPlayer?.release()
+        soundPool?.release()
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, "Clock Sync", NotificationManager.IMPORTANCE_LOW)
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channel = NotificationChannel(CHANNEL_ID, "Clock Precise Service", NotificationManager.IMPORTANCE_DEFAULT)
+            channel.enableVibration(false)
+            channel.setSound(null, null)
+            nm.createNotificationChannel(channel)
         }
+    }
+
+    private fun darkenColor(color: Int, factor: Float): Int {
+        val a = android.graphics.Color.alpha(color)
+        val r = (android.graphics.Color.red(color) * factor).toInt()
+        val g = (android.graphics.Color.green(color) * factor).toInt()
+        val b = (android.graphics.Color.blue(color) * factor).toInt()
+        return android.graphics.Color.argb(a, r, g, b)
     }
 
     fun updateSettings(newSettings: AppSettings) {
         currentSettings = newSettings
         engine.updateDurations(newSettings.workDuration, newSettings.breakDuration)
+        loadCurrentSound()
         rescheduleAlarm()
         updateNotification()
     }

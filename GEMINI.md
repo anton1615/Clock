@@ -2,7 +2,7 @@
 
 ## 專案現況
 - **專案名稱**: Clock
-- **目前版本**: v1.1.8 (Unified Target Architecture)
+- **目前版本**: v1.1.9 (Pixel Hardened & Low-Latency Audio)
 - **核心技術**: .NET 10, WPF, Android Native (Kotlin + Compose), SignalR, mDNS
 - **開發日期**: 2026-02-01
 
@@ -19,27 +19,22 @@
 3. **高精度計時**: PC 端採用 UTC 時間戳絕對座標，手機端使用 EMA 補償網路延遲與時鐘偏差。
 4. **背景同步與通知 (v1.1.1)**: 使用 Foreground Service 維持連線，更新通知列資訊。
 5. **進階自訂 (v1.1.2)**: Android 端本地設定頁面，支援時長、顏色與系統音效選擇。
-6. **安全性強化 (v1.1.3)**: PC 設定遷移至 LocalAppData，Android 加入 IP/Hostname 驗證。
+6. **安全性強化 (v1.1.3)**: PC 設定遷移至 LocalAppData，Android 加入 IP/Hostname 證。
 7. **電力優化 (v1.1.5)**: Adaptive Ticking (前台 50ms / 背景亮屏 1s / 黑畫面 0s)。
 8. **可靠性修復 (v1.1.6)**: 修正螢幕關閉時間凍結，實作音效重對齊 (Drift > 2s 重新預約)。
-9. **統一目標架構 (v1.1.8)**:
-   - **單一目標模型 (Single Target Model)**: 引擎改為被動計算模式 `TargetEndTime - Now`。徹底消滅累積誤差與同步漂移。
-   - **按需刷新機制**: 
-     - **前台**: Activity 驅動 50ms 循環。
-     - **背景**: Service 驅動 1s 循環更新通知（僅螢幕開啟時）。
-     - **黑畫面**: 停止所有 App 內部循環，實現 0% CPU 背景佔用。
-   - **媒體音量控制**: 改用 `MediaPlayer` 並設定 `USAGE_MEDIA`，使音效受手機「媒體音量」滑桿直接控制。
-   - **硬體轉場喚醒**: 透過 `AlarmManager` 強行喚醒 Service 執行轉場，支援在黑畫面轉場時自動播放音效並**亮屏 3 秒**。
-   - **通知列 UI 鎖定**: 移除不穩定的 `Chronometer` API，改由 Service 每秒更新靜態文字，嚴格執行下限箝位，徹底封殺負數顯示。
-   - **非同步轉場優化**: 重構轉場邏輯，優先切換引擎階段與更新 UI，音效準備與播放改為 `prepareAsync()` 並在背景協程執行。解決了在播放音樂或其他音訊競爭環境下導致的轉場卡死（十幾秒）問題。
-   - **健全暫停邏輯**: 修正暫停時未能即時截取時間的 Bug，確保恢復計時時秒數不跳轉。
-   - **服務生存強化**: 移除 `onTaskRemoved` 的 `stopSelf`。即使在多工界面滑掉 App，同步與轉場鬧鐘依然維持運作。
+9. **統一目標架構 (v1.1.8)**: 引擎改為被動計算模式 `TargetEndTime - Now`。徹底消滅累積誤差與同步漂移。
+10. **Pixel 硬化與低延遲音訊 (v1.1.9)**:
+    - **AlarmClock API**: 升級轉場預約至 `setAlarmClock()`，保證在 Pixel 激進的節電模式下黑畫面轉場絕對準時。
+    - **SoundPool 技術**: 捨棄 `MediaPlayer`，改用預載記憶體的 `SoundPool` 並路由至鬧鐘流。解決藍牙耳機播放串流音樂時發生的 10 秒音訊焦點競爭延遲。
+    - **Android 14 權限自動化**: 導入 `USE_EXACT_ALARM` 並實作「三重保險」預約邏輯，保證在各版本 Android 上均不崩潰。
+    - **通知分類與優先級**: 設定 `CATEGORY_ALARM` 並釘選通知，解決鎖屏時通知被收納消失的問題，同時恢復自定義底色。
+    - **轉場安全保險**: Service 持續監聽秒數，若系統鬧鐘延遲，Service 會即時補位觸發轉場。
 
 ## 重要技術決策
-- **事件驅動轉場**: 將「計時顯示」與「狀態轉場」完全解耦。轉場由 OS 級硬體鬧鐘驅動，保證在深度休眠下依然精準觸發。
+- **事件驅動轉場**: 將「計時顯示」與「狀態轉場」完全解耦。轉場由 OS 級最高權限鬧鐘驅動。
 - **單一事實來源**: 以物理時間（或 PC 傳來的目標戳記）為唯一對時基準。
 - **負數保護機制**: 針對分散式系統的不對稱性，在引擎、UI、通知列三層級強制執行 `Math.max(0.0, ...)`。
-- **Android 14 合規**: 明確宣告並處理 `SCHEDULE_EXACT_ALARM` 與 `WAKE_LOCK` 權限。
+- **Android 14 合規**: 明確宣告並處理 `SCHEDULE_EXACT_ALARM`、`USE_EXACT_ALARM` 與 `WAKE_LOCK` 權限。
 
 ## 網路配置要求
 - **連接埠**: TCP 8888 (SignalR)。
