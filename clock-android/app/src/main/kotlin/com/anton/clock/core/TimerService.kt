@@ -40,6 +40,8 @@ class TimerService : Service() {
     private val CHANNEL_ID = "clock_sync_channel_v3" // 更新 ID
     private val NOTIFICATION_ID = 888
 
+    private var soundJob: Job? = null
+
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -89,7 +91,7 @@ class TimerService : Service() {
         serviceScope.launch {
             AppLifecycleObserver.getInstance().isForeground.collectLatest { isForeground ->
                 engine.setForeground(isForeground)
-                updateNotification() // 狀態變更時更新 UI
+                updateNotification()
             }
         }
         
@@ -108,25 +110,22 @@ class TimerService : Service() {
             signalRManager.lastState.collectLatest { state ->
                 state?.let { 
                     engine.applyState(it)
-                    scheduleSound() // 同步新狀態後重新預約音效
+                    // applyState 內部會更新 engine 的 isPaused 和 isWorkPhase
+                    // 這些 flow 的變動會觸發下面的 collect 進行 scheduleSound
                 }
             }
         }
         
-        var lastPhase = engine.isWorkPhase.value
         serviceScope.launch {
-            engine.isWorkPhase.collect { isWork ->
-                if (isWork != lastPhase) {
-                    scheduleSound() // 切換階段後重新預約音效
-                    updateNotification()
-                    lastPhase = isWork
-                }
+            engine.isWorkPhase.collect { 
+                scheduleSound()
+                updateNotification()
             }
         }
 
         serviceScope.launch {
             engine.isPaused.collectLatest { 
-                scheduleSound() // 暫停或恢復時更新預約
+                scheduleSound()
                 updateNotification() 
             }
         }
@@ -139,9 +138,34 @@ class TimerService : Service() {
         startForeground(NOTIFICATION_ID, createNotification())
     }
 
+    private fun scheduleSound() {
+        soundJob?.cancel()
+        
+        val isPaused = engine.isPaused.value
+        if (isPaused) {
+            Log.d(TAG, "Timer paused, sound scheduling cancelled.")
+            return
+        }
+
+        val remainingMillis = (engine.remainingSeconds.value * 1000.0).toLong()
+        if (remainingMillis <= 0) return
+
+        Log.d(TAG, "Scheduling sound in ${remainingMillis}ms")
+        
+        soundJob = serviceScope.launch {
+            delay(remainingMillis)
+            // 再次檢查是否仍未暫停
+            if (!engine.isPaused.value) {
+                Log.d(TAG, "Scheduled sound trigger fired!")
+                playDefaultNotificationSound()
+            }
+        }
+    }
+
     fun updateSettings(newSettings: AppSettings) {
         currentSettings = newSettings
         engine.updateDurations(newSettings.workDuration, newSettings.breakDuration)
+        scheduleSound() // 更新時長後重新預約
         updateNotification()
     }
 
@@ -177,29 +201,6 @@ class TimerService : Service() {
         }
     }
 
-    private var soundJob: Job? = null
-
-    private fun scheduleSound() {
-        soundJob?.cancel()
-        
-        val isPaused = engine.isPaused.value
-        if (isPaused) return
-
-        val remainingMillis = (engine.remainingSeconds.value * 1000.0).toLong()
-        if (remainingMillis <= 0) return
-
-        Log.d(TAG, "Scheduling sound in ${remainingMillis}ms")
-        
-        soundJob = serviceScope.launch {
-            delay(remainingMillis)
-            // 再次檢查是否仍未暫停且時間確實到了
-            if (!engine.isPaused.value) {
-                Log.d(TAG, "Scheduled sound trigger fired!")
-                playDefaultNotificationSound()
-            }
-        }
-    }
-
     private fun createNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -212,15 +213,11 @@ class TimerService : Service() {
         val isWork = engine.isWorkPhase.value
         val isPaused = engine.isPaused.value
         val isSynced = engine.isSynced.value
-        val isScreenOn = engine.isScreenOn.value
-        val isForeground = AppLifecycleObserver.getInstance().isForeground.value
         
         val phaseName = if (isWork) "WORKING" else "BREAKING"
         val statusText = buildString {
             if (isPaused) append("PAUSED") else append("RUNNING")
             if (isSynced) append(" • SYNCED")
-            if (!isScreenOn) append(" • Lpm")
-            else if (!isForeground) append(" • Bg") // 亮屏但不在 App 內時顯示 Bg
         }
         
         val baseColorHex = if (isWork) currentSettings.workColor else currentSettings.breakColor

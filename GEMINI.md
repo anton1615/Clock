@@ -2,7 +2,7 @@
 
 ## 專案現況
 - **專案名稱**: Clock
-- **目前版本**: v1.1.4 (Notification Fixes)
+- **目前版本**: v1.1.5 (Power Optimization)
 - **核心技術**: .NET 10, WPF, Android Native (Kotlin + Compose), SignalR, mDNS
 - **開發日期**: 2026-02-01
 
@@ -37,8 +37,11 @@
    - **防禦性程式碼**: 加入 Hex 顏色格式驗證，防止因設定錯誤導致的啟動閃退。
    - **隱私控制**: Android 通知可見性調為 `PRIVATE`，保護鎖屏資訊。
    - **資源回收**: Android 端連線後自動停止 mDNS 掃描，節省電力與 WiFi 資源。
-7. **穩定性修正 (v1.1.4)**:
-   - **Android 通知倒數修正**: 解決切換階段時，因狀態更新順序問題導致通知欄 Chronometer 顯示負數 (倒數至 0 後繼續倒數) 的 Bug。現在 `PomodoroEngine` 會確保在發送狀態變更事件前，先更新剩餘時間。
+7. **電力與邏輯優化 (v1.1.5)**:
+   - **智慧刷新率 (Adaptive Ticking)**: 根據 App 狀態動態調整 (前台 50ms / 背景 1s / 螢幕關閉 1hr)。
+   - **零喚醒音效 (Sound Scheduling)**: 移除高頻輪詢，改用 Coroutine 延遲預約音效播放，允許 CPU 在倒數期間深層休眠。
+   - **自動循環與修復**: 修正手動切換階段導致的暫停 Bug；實現離線模式下的自動階段循環。
+   - **持久化簽名**: 導入固定 `debug.keystore` 並配置 Gradle，解決 APK 升級時簽名不一致無法更新的問題。
 
 ## 重要技術決策
 - **核心抽象化**: 將計時器 (ITimer)、音效 (IAudioService) 與 UI 控制 (IUIService) 介面化，確保 clock.Lib 可跨平台重用。

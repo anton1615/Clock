@@ -34,18 +34,18 @@ class PomodoroEngine(
     fun setForeground(foreground: Boolean) { 
         val changed = _isForeground.value != foreground
         _isForeground.value = foreground 
-        if (changed && foreground) {
-            // 回到前台時立即對時一次，避免看到舊時間
-            refreshTimeFromTarget()
+        if (changed) {
+            if (foreground) refreshTimeFromTarget()
+            start() // 重啟 Loop 以更新 Delay 並中斷舊延遲
         }
     }
     
     fun setScreenOn(on: Boolean) { 
         val changed = _isScreenOn.value != on
         _isScreenOn.value = on 
-        if (changed && on) {
-            // 螢幕開啟時立即對時一次
-            refreshTimeFromTarget()
+        if (changed) {
+            if (on) refreshTimeFromTarget()
+            start() // 重啟 Loop 以更新 Delay 並中斷舊延遲
         }
     }
 
@@ -77,16 +77,16 @@ class PomodoroEngine(
     }
 
     fun start() {
-        timerJob?.cancel()
+        timerJob?.cancel() // 這是關鍵：取消舊的延遲任務
         timerJob = scope.launch {
             var lastTime = System.currentTimeMillis()
             while (isActive) {
                 // 動態調整 Delay
                 val currentDelay = when {
-                    !_isScreenOn.value -> 3600000L // 螢幕關閉時，每小時才醒來一次 (實際上等亮屏觸發)
+                    !_isScreenOn.value -> 3600000L // 螢幕關閉時，休眠 (1hr)
                     _isPaused.value -> 500L
-                    !_isForeground.value -> 1000L // 後台時，每 1 秒更新一次（配合通知欄）
-                    else -> 50L // 前台時，50ms（流暢動畫）
+                    !_isForeground.value -> 1000L // 後台時，1 秒
+                    else -> 50L // 前台時，50ms
                 }
                 
                 delay(currentDelay)
@@ -99,6 +99,11 @@ class PomodoroEngine(
                     val delta = (now - lastTime) / 1000.0
                     if (_remainingSeconds.value > 0) {
                         _remainingSeconds.value -= delta
+                    } else {
+                        // 倒數結束，自動切換階段 (離線模式)
+                        _remainingSeconds.value = 0.0
+                        localTogglePhase()
+                        return@launch // 跳出舊 Loop，localTogglePhase 會啟動新的
                     }
                 }
                 lastTime = now
@@ -115,6 +120,7 @@ class PomodoroEngine(
     }
 
     fun applyState(state: EngineState) {
+        val pauseChanged = _isPaused.value != state.isPaused
         lastState = state
         
         // 1. 先計算時間偏差與補償
@@ -142,21 +148,29 @@ class PomodoroEngine(
         // 3. 最後更新狀態旗標 (觸發 TimerService 的監聽器)
         _isWorkPhase.value = state.isWorkPhase
         _isPaused.value = state.isPaused
+
+        // 4. 如果暫停狀態改變了，也重啟 Loop
+        if (pauseChanged) start()
     }
 
-    fun localTogglePause() { _isPaused.value = !_isPaused.value }
+    fun localTogglePause() { 
+        _isPaused.value = !_isPaused.value 
+        start() // 切換暫停時重啟 Loop
+    }
+
     fun localTogglePhase() {
         _isWorkPhase.value = !_isWorkPhase.value
-        reset()
+        reset(startPaused = false) // 手動或自動切換階段後應自動開始
     }
 
-    fun reset() {
+    fun reset(startPaused: Boolean = true) {
         workDurationMinutes = nextWorkMins
         breakDurationMinutes = nextBreakMins
         val mins = if (_isWorkPhase.value) workDurationMinutes else breakDurationMinutes
         _remainingSeconds.value = mins * 60.0
-        _isPaused.value = true
+        _isPaused.value = startPaused
         lastState = null
         clockOffsetRolling = null
+        start() // 確保重啟 Loop
     }
 }
