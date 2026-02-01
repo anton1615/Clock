@@ -41,6 +41,7 @@ class TimerService : Service() {
     private val NOTIFICATION_ID = 888
 
     private var soundJob: Job? = null
+    private var lastScheduledSeconds: Double = 0.0
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -105,12 +106,12 @@ class TimerService : Service() {
                 engine.setSyncStatus(isConnected)
                 
                 if (isConnected) {
-                    Log.d(TAG, "Connected to PC, resetting local sound and syncing...")
-                    soundJob?.cancel() // 連上時先取消本地舊預約
+                    Log.d(TAG, "Connected to PC, syncing sound soon...")
+                    // 連上時不立即 cancel，等第一筆 state 進來再處理
                 } else {
                     Log.d(TAG, "Disconnected from PC, returning to local defaults.")
                     engine.reset(startPaused = true) // 斷線後回到本地預設(25/5分)並暫停
-                    scheduleSound() // 這會因為暫停而自動 cancel 預約
+                    scheduleSound() 
                 }
                 updateNotification()
             }
@@ -120,6 +121,12 @@ class TimerService : Service() {
             signalRManager.lastState.collectLatest { state ->
                 state?.let { 
                     engine.applyState(it)
+                    // 檢查時間同步後的偏差，如果落差超過 2 秒，重新預約音效
+                    // 這解決了「連上 PC 後秒數跳變」以及「PC 中途改時間」音效沒重對齊的問題
+                    if (Math.abs(it.remainingSeconds - lastScheduledSeconds) > 2.0) {
+                        Log.d(TAG, "Sync drift detected (${it.remainingSeconds} vs $lastScheduledSeconds), rescheduling sound.")
+                        scheduleSound()
+                    }
                 }
             }
         }
@@ -152,12 +159,18 @@ class TimerService : Service() {
         val isPaused = engine.isPaused.value
         if (isPaused) {
             Log.d(TAG, "Timer paused, sound scheduling cancelled.")
+            lastScheduledSeconds = 0.0
             return
         }
 
-        val remainingMillis = (engine.remainingSeconds.value * 1000.0).toLong()
-        if (remainingMillis <= 0) return
+        val remainingSecs = engine.remainingSeconds.value
+        val remainingMillis = (remainingSecs * 1000.0).toLong()
+        if (remainingMillis <= 0) {
+            lastScheduledSeconds = 0.0
+            return
+        }
 
+        lastScheduledSeconds = remainingSecs
         Log.d(TAG, "Scheduling sound in ${remainingMillis}ms")
         
         soundJob = serviceScope.launch {

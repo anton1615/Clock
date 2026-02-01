@@ -11,12 +11,18 @@
 A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
 Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
+## 🚀 New in v1.1.6: Reliability & Sync Fixes
+
+*   **Fixed Screen-Off Time Freeze**: The timer now correctly tracks elapsed time while the screen is off by utilizing a persistent time reference and a 5s "Power-Efficient Tick".
+*   **Intelligent Sound Re-Sync**: Android now monitors sync drift from the PC. If the remaining time jumps by more than 2 seconds (e.g., during initial connection or manual duration changes), the notification sound is automatically rescheduled to stay perfectly aligned.
+*   **Pause/Resume Robustness**: Improved time tracking logic to prevent "time jumps" when resuming from a paused state or transitioning between power modes.
+
 ## 🚀 New in v1.1.5: Power Optimization & Logic Fixes
 
-*   **Adaptive Ticking (Android)**: Drastically reduced battery usage by adjusting the computation frequency based on app state:
+*   **Adaptive Ticking (Android)**: Optimized battery usage by adjusting computation frequency based on app state:
     *   **Foreground**: 50ms (for smooth animations).
     *   **Background**: 1s (to update notification bar).
-    *   **Screen Off**: **Zero-Wakeup** mode (1hr delay). CPU now deep sleeps during long countdowns.
+    *   **Screen Off**: **Power-Efficient Tick** (5s). CPU maintains logic consistency without excessive wakeups.
 *   **Scheduled Sound Triggers**: Replaced high-frequency polling with a Coroutine-based "Pre-set Alarm" mechanism. Sound triggers accurately even when the CPU is sleeping.
 *   **Automatic Phase Cycling**: Standalone mode now correctly cycles through Work/Break phases without manual intervention.
 *   **Robust Sync Transitions**: 

@@ -57,6 +57,7 @@ class PomodoroEngine(
     private var timerJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Default)
     
+    private var lastTime: Long = 0
     private var clockOffsetRolling: Double? = null
     private val smoothingFactor = 0.15 // 降低一點權重，更穩定
     private var lastState: EngineState? = null
@@ -78,12 +79,17 @@ class PomodoroEngine(
 
     fun start() {
         timerJob?.cancel() // 這是關鍵：取消舊的延遲任務
+        
+        // 如果是全新的開始，初始化 lastTime
+        if (lastTime == 0L) {
+            lastTime = System.currentTimeMillis()
+        }
+
         timerJob = scope.launch {
-            var lastTime = System.currentTimeMillis()
             while (isActive) {
                 // 動態調整 Delay
                 val currentDelay = when {
-                    !_isScreenOn.value -> 3600000L // 螢幕關閉時，休眠 (1hr)
+                    !_isScreenOn.value -> 5000L // 螢幕關閉時，每 5 秒醒來一次扣除秒數，確保邏輯不中斷
                     _isPaused.value -> 500L
                     !_isForeground.value -> 1000L // 後台時，1 秒
                     else -> 50L // 前台時，50ms
@@ -102,6 +108,7 @@ class PomodoroEngine(
                     } else {
                         // 倒數結束，自動切換階段 (離線模式)
                         _remainingSeconds.value = 0.0
+                        lastTime = now // 更新時間基準，避免切換後 delta 累計
                         localTogglePhase()
                         return@launch // 跳出舊 Loop，localTogglePhase 會啟動新的
                     }
@@ -149,12 +156,19 @@ class PomodoroEngine(
         _isWorkPhase.value = state.isWorkPhase
         _isPaused.value = state.isPaused
 
-        // 4. 如果暫停狀態改變了，也重啟 Loop
-        if (pauseChanged) start()
+        // 4. 如果從暫停變為執行，重置 lastTime 避免時間跳變
+        if (pauseChanged) {
+            if (!state.isPaused) lastTime = System.currentTimeMillis()
+            start()
+        }
     }
 
     fun localTogglePause() { 
-        _isPaused.value = !_isPaused.value 
+        val newPaused = !_isPaused.value
+        if (!newPaused) {
+            lastTime = System.currentTimeMillis() // 恢復執行前重置時間點
+        }
+        _isPaused.value = newPaused
         start() // 切換暫停時重啟 Loop
     }
 
