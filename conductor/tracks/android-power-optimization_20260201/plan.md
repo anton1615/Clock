@@ -9,14 +9,14 @@
 - [x] Task: Conductor - User Manual Verification 'Infrastructure & Lifecycle Management' (Protocol in workflow.md) [checkpoint: 8b703fa]
 
 ## Phase 2: Core Logic Optimization (Adaptive Ticking)
-- [ ] Task: Android - Refactor `PomodoroEngine.kt` to accept `isForeground` and `isScreenOn` states.
-    - [ ] Sub-task: Modify the main `while(isActive)` loop to dynamically adjust `delay()`.
-    - [ ] Sub-task: Implement logic: 50ms (Foreground), 1000ms (Background), Pause/Stop (Screen Off).
-- [ ] Task: Android - Implement Screen Off/On detection in `MainActivity` (or `TimerService`).
-    - [ ] Sub-task: Register `Intent.ACTION_SCREEN_OFF` and `Intent.ACTION_SCREEN_ON` receivers.
-    - [ ] Sub-task: Pass screen state to `PomodoroEngine`.
-- [ ] Task: Android - Implement "Fast Forward" logic on resume.
-    - [ ] Sub-task: When engine resumes from Screen Off or Background, force an immediate recalculation of `remainingSeconds` based on `targetEndTimeUnix`.
+- [x] Task: Android - Refactor `PomodoroEngine.kt` to accept `isForeground` and `isScreenOn` states. [365c896]
+    - [x] Modify the main `while(isActive)` loop to dynamically adjust `delay()`.
+    - [x] Implement logic: 50ms (Foreground), 1000ms (Background), Pause/Stop (Screen Off).
+- [x] Task: Android - Implement Screen Off/On detection in `TimerService`. [b4cffd2]
+    - [x] Register `Intent.ACTION_SCREEN_OFF` and `Intent.ACTION_SCREEN_ON` receivers.
+    - [x] Pass screen state to `PomodoroEngine`.
+- [x] Task: Android - Implement "Fast Forward" logic on resume. [a6f097b]
+    - [x] When engine resumes from Screen Off or Background, force an immediate recalculation of `remainingSeconds` based on `targetEndTimeUnix`.
 - [ ] Task: Conductor - User Manual Verification 'Core Logic Optimization (Adaptive Ticking)' (Protocol in workflow.md) [checkpoint: ]
 
 ## Phase 3: Sound Scheduling (Zero-Wakeup)
