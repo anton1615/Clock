@@ -89,6 +89,7 @@ class TimerService : Service() {
         serviceScope.launch {
             AppLifecycleObserver.getInstance().isForeground.collectLatest { isForeground ->
                 engine.setForeground(isForeground)
+                updateNotification() // 狀態變更時更新 UI
             }
         }
         
@@ -105,7 +106,10 @@ class TimerService : Service() {
 
         serviceScope.launch {
             signalRManager.lastState.collectLatest { state ->
-                state?.let { engine.applyState(it) }
+                state?.let { 
+                    engine.applyState(it)
+                    scheduleSound() // 同步新狀態後重新預約音效
+                }
             }
         }
         
@@ -113,27 +117,18 @@ class TimerService : Service() {
         serviceScope.launch {
             engine.isWorkPhase.collect { isWork ->
                 if (isWork != lastPhase) {
+                    scheduleSound() // 切換階段後重新預約音效
                     updateNotification()
                     lastPhase = isWork
                 }
             }
         }
 
-        // 優化音效邏輯：監聽時間變動，當時間從 >0 變為 0 附近時播放
-        var wasNearZero = false
         serviceScope.launch {
-            engine.remainingSeconds.collect { remaining ->
-                if (remaining <= 0.1 && !wasNearZero && !engine.isPaused.value) {
-                    playDefaultNotificationSound()
-                    wasNearZero = true
-                } else if (remaining > 1.0) {
-                    wasNearZero = false
-                }
+            engine.isPaused.collectLatest { 
+                scheduleSound() // 暫停或恢復時更新預約
+                updateNotification() 
             }
-        }
-        
-        serviceScope.launch {
-            engine.isPaused.collectLatest { updateNotification() }
         }
 
         serviceScope.launch {
@@ -182,6 +177,29 @@ class TimerService : Service() {
         }
     }
 
+    private var soundJob: Job? = null
+
+    private fun scheduleSound() {
+        soundJob?.cancel()
+        
+        val isPaused = engine.isPaused.value
+        if (isPaused) return
+
+        val remainingMillis = (engine.remainingSeconds.value * 1000.0).toLong()
+        if (remainingMillis <= 0) return
+
+        Log.d(TAG, "Scheduling sound in ${remainingMillis}ms")
+        
+        soundJob = serviceScope.launch {
+            delay(remainingMillis)
+            // 再次檢查是否仍未暫停且時間確實到了
+            if (!engine.isPaused.value) {
+                Log.d(TAG, "Scheduled sound trigger fired!")
+                playDefaultNotificationSound()
+            }
+        }
+    }
+
     private fun createNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -195,12 +213,14 @@ class TimerService : Service() {
         val isPaused = engine.isPaused.value
         val isSynced = engine.isSynced.value
         val isScreenOn = engine.isScreenOn.value
+        val isForeground = AppLifecycleObserver.getInstance().isForeground.value
         
         val phaseName = if (isWork) "WORKING" else "BREAKING"
         val statusText = buildString {
             if (isPaused) append("PAUSED") else append("RUNNING")
             if (isSynced) append(" • SYNCED")
-            if (!isScreenOn) append(" • Lpm") // Low Power Mode indicator
+            if (!isScreenOn) append(" • Lpm")
+            else if (!isForeground) append(" • Bg") // 亮屏但不在 App 內時顯示 Bg
         }
         
         val baseColorHex = if (isWork) currentSettings.workColor else currentSettings.breakColor
@@ -216,9 +236,9 @@ class TimerService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // 改為 DEFAULT
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS) // 改為 PROGRESS
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
 
         // 倒數計時邏輯 (使用 Wall Clock Timebase)
         if (!isPaused) {

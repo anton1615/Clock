@@ -83,8 +83,8 @@ class PomodoroEngine(
             while (isActive) {
                 // 動態調整 Delay
                 val currentDelay = when {
+                    !_isScreenOn.value -> 3600000L // 螢幕關閉時，每小時才醒來一次 (實際上等亮屏觸發)
                     _isPaused.value -> 500L
-                    !_isScreenOn.value -> 2000L // 螢幕關閉時，每 2 秒才檢查一次（極致省電）
                     !_isForeground.value -> 1000L // 後台時，每 1 秒更新一次（配合通知欄）
                     else -> 50L // 前台時，50ms（流暢動畫）
                 }

@@ -8,7 +8,7 @@
 - [x] Task: Android - Integrate `ProcessLifecycleOwner` in `TimerApplication`. [a0f4ee1]
 - [x] Task: Conductor - User Manual Verification 'Infrastructure & Lifecycle Management' (Protocol in workflow.md) [checkpoint: 8b703fa]
 
-## Phase 2: Core Logic Optimization (Adaptive Ticking)
+## Phase 2: Core Logic Optimization (Adaptive Ticking) [checkpoint: bd4d6a0]
 - [x] Task: Android - Refactor `PomodoroEngine.kt` to accept `isForeground` and `isScreenOn` states. [365c896]
     - [x] Modify the main `while(isActive)` loop to dynamically adjust `delay()`.
     - [x] Implement logic: 50ms (Foreground), 1000ms (Background), Pause/Stop (Screen Off).
@@ -17,10 +17,10 @@
     - [x] Pass screen state to `PomodoroEngine`.
 - [x] Task: Android - Implement "Fast Forward" logic on resume. [a6f097b]
     - [x] When engine resumes from Screen Off or Background, force an immediate recalculation of `remainingSeconds` based on `targetEndTimeUnix`.
-- [ ] Task: Conductor - User Manual Verification 'Core Logic Optimization (Adaptive Ticking)' (Protocol in workflow.md) [checkpoint: ]
+- [x] Task: Conductor - User Manual Verification 'Core Logic Optimization (Adaptive Ticking)' (Protocol in workflow.md) [checkpoint: bd4d6a0]
 
 ## Phase 3: Sound Scheduling (Zero-Wakeup)
-- [ ] Task: Android - Implement `scheduleSound()` function in `TimerService`.
+- [~] Task: Android - Implement `scheduleSound()` function in `TimerService`.
     - [ ] Sub-task: Calculate duration to `targetEndTimeUnix`.
     - [ ] Sub-task: Launch a `Coroutine` with `delay(duration)` to play sound.
     - [ ] Sub-task: Ensure this coroutine is cancelled if `isPaused` becomes true or phase changes.
