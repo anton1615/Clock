@@ -29,10 +29,11 @@
 
 ## Android 實作
 *   **Foreground Service**: 使用前台服務，確保與 PC 端連線不中斷。
-*   **Chronometer API**: 使用系統原生 API 顯示倒數，極大化省電效能。
-*   **RingtoneManager**: 調用系統內建鈴聲選取器，解決版權與資源體積問題。
-*   **Adaptive Ticking**: 根據 App 狀態 (前台/背景/鎖屏) 動態調整計算頻率 (50ms/1s/None)，螢幕關閉時進入零喚醒模式。
-*   **Sound Scheduling**: 移除 Polling 監聽，改用協程 (Coroutine) 延遲預約機制以達成計時結束時的精準觸發。
+*   **Single Target Engine**: 捨棄 Loop 邏輯，改用 `TargetEndTime - Now` 之被動計算架構，確保物理時間同步。
+*   **MediaPlayer**: 使用 `MediaPlayer` 取代 RingtoneManager，並設定 `USAGE_MEDIA` 讓音效受媒體音量控制。
+*   **Adaptive Ticking**: 根據 App 狀態動態調整頻率：前台 (50ms)、背景且亮屏 (1s)、黑畫面 (None)。
+*   **AlarmManager & WakeLock**: 使用 `AlarmManager` 進行系統級轉場調度，配合 `WakeLock` 在黑畫面轉場時點亮螢幕。
+*   **Sound Deduplication**: 實作 `lastPlayedTargetTime` 鎖定機制，解決背景喚醒導致的重複音效問題。
 *   **Lifecycle Monitoring**: 使用 `ProcessLifecycleOwner` 追蹤 App 前背景狀態。
 
 ## 安全性與隱私

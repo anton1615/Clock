@@ -11,12 +11,20 @@
 A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
 Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
-## 🚀 New in v1.1.7: Background Precision & UI Fixes
+## 🚀 New in v1.1.8: Unified Target Architecture & Stability
 
-*   **AlarmManager Integration**: Replaced standard coroutine delays with Android's `AlarmManager` (`setExactAndAllowWhileIdle`) for sound triggering. This ensures that the notification sound rings accurately even in deep sleep (Doze Mode).
-*   **Negative Time Clamp**: Added defensive logic to the `remainingSeconds` calculation. The UI will now never show negative values or the momentary `-1` glitch during sync drifts or phase transitions.
-*   **Android 14 Support**: Added `SCHEDULE_EXACT_ALARM` permission to comply with the latest Android requirements for precise timing apps.
-*   **Dual-Track Triggering**: Maintained coroutine delays for high-responsiveness while active, backed by `AlarmManager` for rock-solid reliability in the background.
+*   **Single Target Model (Android)**: Re-engineered the core timing engine to use a passive "Single Target" calculation. This eliminates all cumulative drift and ensures the phone stays perfectly synced with the physical time or PC host.
+*   **Media Volume Control (Android)**: Switched from Ringtone to `MediaPlayer` using `USAGE_MEDIA`. The countdown sound is now controlled by your phone's **Media Volume** (music/video volume), resolving previous control inconsistencies.
+*   **Intelligent Screen Wake-up**: When a phase transition occurs in the background, the app now automatically **wakes up the screen for 3 seconds** and plays the notification sound, ensuring you see the status change immediately.
+*   **Zero-Loop Power Efficiency**: App internal loops are completely suspended when the screen is off (0% CPU usage). Transitions are driven by system-level hardware alarms via `AlarmManager`.
+*   **UI Negative Protection**: Completely removed the unstable `Chronometer` API in notifications. Time is now manually updated as static text every second, strictly clamped at `00:00` to prevent any negative displays.
+*   **Persistent Service**: Swiping the app away from the Recents list no longer stops the timer. The Foreground Service is hardened to maintain synchronization and alarm reliability.
+
+## 🚀 New in v1.1.7: Background Precision & Sound Deduplication
+
+*   **AlarmManager Integration**: Uses `setExactAndAllowWhileIdle` for sound triggering, bypassing Android's Doze Mode restrictions.
+*   **Sound Deduplication**: Implemented a `lastPlayedTargetTime` lock to prevent "double sounds" when waking up from background or transitioning between power modes.
+*   **Safety Net**: Added a background monitor that forces a phase transition if the system alarm is delayed by more than 1 second, preventing the timer from getting stuck at zero.
 
 ## 🚀 New in v1.1.6: Reliability & Sync Fixes
 

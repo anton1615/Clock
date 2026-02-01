@@ -10,6 +10,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Binder
@@ -40,26 +42,26 @@ class TimerService : Service() {
     private lateinit var alarmManager: AlarmManager
     private var currentSettings = AppSettings()
     
-    private var isBound = false
-    private val CHANNEL_ID = "clock_sync_channel_v3" // 更新 ID
+    private val CHANNEL_ID = "clock_sync_channel_v4"
     private val NOTIFICATION_ID = 888
 
-    private var soundJob: Job? = null
     private var lastScheduledTargetEnd: Long = 0L
     private var lastPlayedTargetTime: Long = 0L
     private var lastObservedPhase: Boolean? = null
+    
+    private var mediaPlayer: MediaPlayer? = null
+    private var updateJob: Job? = null
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    Log.d(TAG, "Screen OFF detected")
-                    engine.setScreenOn(false)
+                    Log.d(TAG, "Screen OFF - Stopping background updates")
+                    stopUpdateLoop()
                 }
                 Intent.ACTION_SCREEN_ON -> {
-                    Log.d(TAG, "Screen ON detected")
-                    engine.setScreenOn(true)
-                    updateNotification() // 螢幕開啟時立即刷新通知
+                    Log.d(TAG, "Screen ON - Resuming background updates")
+                    startUpdateLoop()
                 }
             }
         }
@@ -69,15 +71,7 @@ class TimerService : Service() {
         fun getService(): TimerService = this@TimerService
     }
 
-    override fun onBind(intent: Intent?): IBinder {
-        isBound = true
-        return binder
-    }
-
-    override fun onUnbind(intent: Intent?): Boolean {
-        isBound = false
-        return true
-    }
+    override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onCreate() {
         super.onCreate()
@@ -86,7 +80,6 @@ class TimerService : Service() {
         currentSettings = settingsRepository.getSettings()
         
         createNotificationChannel()
-        engine.start()
         
         // 註冊螢幕廣播
         val filter = IntentFilter().apply {
@@ -95,30 +88,17 @@ class TimerService : Service() {
         }
         registerReceiver(screenReceiver, filter)
 
-        // 監聽 App 生命週期狀態並傳給引擎
-        serviceScope.launch {
-            AppLifecycleObserver.getInstance().isForeground.collectLatest { isForeground ->
-                engine.setForeground(isForeground)
-                updateNotification()
-            }
-        }
-        
-        // 套用初始設定
+        // 初始化引擎設定
         engine.updateDurations(currentSettings.workDuration, currentSettings.breakDuration)
         
-        // 監聽 SignalR 狀態與引擎狀態
+        // 監聽 SignalR 與狀態同步
         serviceScope.launch {
             signalRManager.connectionState.collectLatest { state ->
                 val isConnected = state == HubConnectionState.CONNECTED
                 engine.setSyncStatus(isConnected)
-                
-                if (isConnected) {
-                    Log.d(TAG, "Connected to PC, syncing sound soon...")
-                    // 連上時不立即 cancel，等第一筆 state 進來再處理
-                } else {
-                    Log.d(TAG, "Disconnected from PC, returning to local defaults.")
-                    engine.reset(startPaused = true) // 斷線後回到本地預設(25/5分)並暫停
-                    scheduleSound() 
+                if (!isConnected) {
+                    engine.reset(startPaused = true)
+                    rescheduleAlarm()
                 }
                 updateNotification()
             }
@@ -128,11 +108,9 @@ class TimerService : Service() {
             signalRManager.lastState.collectLatest { state ->
                 state?.let { 
                     engine.applyState(it)
-                    // 修正：增加門檻至 2 秒，避免頻繁更新造成系統節流
-                    val drift = if (it.isPaused) 0L else Math.abs(it.targetEndTimeUnix - lastScheduledTargetEnd)
-                    if (drift > 2000) { 
-                        Log.d(TAG, "Sync target drift detected ($drift ms), rescheduling sound.")
-                        scheduleSound()
+                    // 如果目標時間變動超過 2 秒，重新預約
+                    if (Math.abs(it.targetEndTimeUnix - lastScheduledTargetEnd) > 2000) {
+                        rescheduleAlarm()
                     }
                 }
             }
@@ -141,45 +119,77 @@ class TimerService : Service() {
         serviceScope.launch {
             engine.isWorkPhase.collect { isWork ->
                 if (lastObservedPhase != null && lastObservedPhase != isWork) {
-                    // 階段切換了！只有在剩餘秒數極小（代表自然結束）時才補播音效，避免手動 Skip 觸發
-                    if (engine.remainingSeconds.value < 1.0) {
-                        playSound(lastScheduledTargetEnd, "NaturalPhaseTransition")
+                    // 自然結束或 PC 同步導致的切換
+                    if (engine.remainingSeconds.value < 2.0) {
+                        handleTransition(engine.getTargetEndTimeUnix())
                     }
                 }
                 lastObservedPhase = isWork
-                lastScheduledTargetEnd = 0L // 重置以確保重新預約
-                scheduleSound()
+                rescheduleAlarm()
                 updateNotification()
             }
         }
 
         serviceScope.launch {
             engine.isPaused.collectLatest { 
-                scheduleSound()
+                rescheduleAlarm()
                 updateNotification() 
             }
         }
 
-        serviceScope.launch {
-            engine.isSynced.collectLatest { updateNotification() }
-        }
+        // 啟動更新循環 (如果螢幕開著)
+        startUpdateLoop()
+        startForeground(NOTIFICATION_ID, createNotification())
+    }
 
-        // 安全保險：監聽秒數歸零。如果 AlarmManager 遲到，由這裡補位觸發轉場
-        serviceScope.launch {
-            engine.remainingSeconds.collect { secs ->
-                if (secs <= 0.0 && !engine.isPaused.value && !engine.isSynced.value) {
-                    if (lastScheduledTargetEnd > 0) { // 避免初始狀態觸發
-                        Log.d(TAG, "Safety net triggered: Time is 0, forcing transition.")
-                        playSound(lastScheduledTargetEnd, "SafetyLoop")
-                        engine.localTogglePhase()
-                        updateNotification()
-                    }
-                }
+    private fun startUpdateLoop() {
+        updateJob?.cancel()
+        updateJob = serviceScope.launch {
+            while (isActive) {
+                engine.refreshRemainingSeconds()
+                updateNotification()
+                delay(1000) // 背景/通知欄更新頻率 1s
             }
         }
+    }
+
+    private fun stopUpdateLoop() {
+        updateJob?.cancel()
+        updateJob = null
+    }
+
+    private fun rescheduleAlarm() {
+        val targetEndTime = engine.getTargetEndTimeUnix()
         
-        // 啟動前台服務
-        startForeground(NOTIFICATION_ID, createNotification())
+        // 取消舊鬧鐘
+        if (lastScheduledTargetEnd > 0) {
+            val oldPi = getSoundPendingIntent(lastScheduledTargetEnd)
+            alarmManager.cancel(oldPi)
+        }
+
+        val isPaused = engine.isPaused.value
+        if (isPaused || targetEndTime <= 0) {
+            lastScheduledTargetEnd = 0L
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        val remainingMillis = targetEndTime - now
+        if (remainingMillis < 100) return
+
+        lastScheduledTargetEnd = targetEndTime
+        val triggerTime = SystemClock.elapsedRealtime() + remainingMillis
+        val pi = getSoundPendingIntent(targetEndTime)
+        
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
+            } else {
+                alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
+            }
+        } catch (e: Exception) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
+        }
     }
 
     private fun getSoundPendingIntent(targetTime: Long): PendingIntent {
@@ -188,106 +198,29 @@ class TimerService : Service() {
             putExtra("TARGET_TIME", targetTime)
         }
         return PendingIntent.getService(
-            this, 1, intent, 
+            this, targetTime.hashCode(), intent, 
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
     }
 
-    private fun scheduleSound() {
-        val targetEndTime = engine.getTargetEndTimeUnix()
-        
-        // 如果目標跟上次預約的一樣，且已經有 Job 或 Alarm 在跑，就不用動
-        if (targetEndTime > 0 && targetEndTime == lastScheduledTargetEnd && (soundJob?.isActive == true)) {
-            return
+    /**
+     * 核心轉場處理：播放音效、喚醒、切換
+     */
+    private fun handleTransition(targetTime: Long) {
+        // 1. 去重播放與喚醒
+        if (Math.abs(targetTime - lastPlayedTargetTime) > 2000) {
+            lastPlayedTargetTime = targetTime
+            wakeScreen(3000)
+            playSoundViaMediaPlayer()
         }
 
-        soundJob?.cancel()
-        alarmManager.cancel(getSoundPendingIntent(lastScheduledTargetEnd))
-        
-        val isPaused = engine.isPaused.value
-        if (isPaused || targetEndTime <= 0) {
-            Log.d(TAG, "Timer paused or no target, sound scheduling cancelled.")
-            lastScheduledTargetEnd = 0L
-            return
-        }
-
-        val remainingSecs = engine.remainingSeconds.value
-        val remainingMillis = (remainingSecs * 1000.0).toLong()
-        if (remainingMillis < 100) {
-            lastScheduledTargetEnd = 0L
-            return
-        }
-
-        lastScheduledTargetEnd = targetEndTime
-        Log.d(TAG, "Scheduling sound for target $targetEndTime in ${remainingMillis}ms")
-        
-        // 1. AlarmManager 保險 (螢幕關閉、Doze 模式必備)
-        val triggerTime = SystemClock.elapsedRealtime() + remainingMillis
-        val pi = getSoundPendingIntent(targetEndTime)
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
-            } else {
-                alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
-            }
-        } catch (e: SecurityException) {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pi)
-        }
-
-        // 2. Coroutine delay (App 活著時的快速反應)
-        soundJob = serviceScope.launch {
-            delay(remainingMillis)
-            if (!engine.isPaused.value) {
-                Log.d(TAG, "Coroutine sound trigger fired for $targetEndTime")
-                playSound(targetEndTime, "Coroutine")
-                
-                // 如果是在 Local 模式 (未連線)，由 Coroutine 負責觸發階段切換
-                if (!engine.isSynced.value) {
-                    Log.d(TAG, "Local mode: Coroutine triggered phase toggle")
-                    engine.localTogglePhase()
-                }
-            }
+        // 2. 本地轉場
+        if (!engine.isSynced.value && !engine.isPaused.value) {
+            engine.localTogglePhase()
         }
     }
 
-    fun updateSettings(newSettings: AppSettings) {
-        currentSettings = newSettings
-        engine.updateDurations(newSettings.workDuration, newSettings.breakDuration)
-        scheduleSound() // 更新時長後重新預約
-        updateNotification()
-    }
-
-    private fun playSound(targetTime: Long, source: String) {
-        // 喚醒螢幕
-        wakeScreen(3000)
-
-        // 去重機制：如果該目標時間已經在 2 秒內播過了，就跳過
-        if (targetTime > 0 && Math.abs(targetTime - lastPlayedTargetTime) < 2000) {
-            Log.d(TAG, "Sound already played for target $targetTime via $source, skipping.")
-            return
-        }
-        lastPlayedTargetTime = targetTime
-        Log.d(TAG, "Playing sound for target $targetTime (source: $source)")
-        playDefaultNotificationSound()
-    }
-
-    private fun wakeScreen(durationMs: Long) {
-        try {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (!powerManager.isInteractive) {
-                val wakeLock = powerManager.newWakeLock(
-                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-                    "Clock:WakeUpOnTransition"
-                )
-                wakeLock.acquire(durationMs)
-                Log.d(TAG, "Screen woken up for $durationMs ms")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to wake screen", e)
-        }
-    }
-
-    private fun playDefaultNotificationSound() {
+    private fun playSoundViaMediaPlayer() {
         val soundUriStr = currentSettings.soundUri
         if (soundUriStr == "silent" || soundUriStr == null) return
         
@@ -297,93 +230,66 @@ class TimerService : Service() {
             } else {
                 Uri.parse(soundUriStr)
             }
-            val ringtone = RingtoneManager.getRingtone(applicationContext, uri)
-            if (ringtone != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    ringtone.audioAttributes = android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_EVENT)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(applicationContext, uri)
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA) // 強制使用媒體音量
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
-                }
-                if (!ringtone.isPlaying) {
-                    ringtone.play()
-                }
+                )
+                prepare()
+                start()
+                setOnCompletionListener { it.release() }
             }
         } catch (e: Exception) {
-            Log.e("TimerService", "Failed to play notification sound", e)
+            Log.e(TAG, "MediaPlayer failed", e)
         }
     }
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Clock Synchronization"
-            val descriptionText = "Displays real-time countdown from PC"
-            val importance = NotificationManager.IMPORTANCE_DEFAULT // 改為 DEFAULT 以移除頂部橫幅
-            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
-                description = descriptionText
-                setShowBadge(false)
-                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-            }
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
+    private fun wakeScreen(durationMs: Long) {
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val wakeLock = powerManager.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                "Clock:WakeUp"
+            )
+            wakeLock.acquire(durationMs)
+        } catch (e: Exception) {}
     }
 
     private fun createNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent, 
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
         val isWork = engine.isWorkPhase.value
         val isPaused = engine.isPaused.value
         val isSynced = engine.isSynced.value
+        val remainingSecs = Math.max(0.0, engine.remainingSeconds.value)
         
         val phaseName = if (isWork) "WORKING" else "BREAKING"
-        val statusText = buildString {
-            if (isPaused) append("PAUSED") else append("RUNNING")
-            if (isSynced) append(" • SYNCED")
-        }
+        val statusText = if (isPaused) "PAUSED" else if (isSynced) "SYNCED" else "RUNNING"
+        
+        val timeStr = String.format("%02d:%02d", (remainingSecs / 60).toInt(), (remainingSecs % 60).toInt())
         
         val baseColorHex = if (isWork) currentSettings.workColor else currentSettings.breakColor
-        val baseColor = android.graphics.Color.parseColor(baseColorHex)
-        val darkenedColor = darkenColor(baseColor, 0.3f) 
+        val darkenedColor = darkenColor(android.graphics.Color.parseColor(baseColorHex), 0.3f)
         
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info) 
             .setContentTitle(phaseName)
-            .setContentText(statusText)
+            .setContentText("$statusText • $timeStr")
             .setColor(darkenedColor)
             .setColorized(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-
-        // 倒數計時邏輯 (使用 Wall Clock Timebase)
-        val remainingSecs = Math.max(0.0, engine.remainingSeconds.value)
-        
-        // 增加更嚴格的判定：剩餘時間小於 1 秒或已暫停，絕對不使用 Chronometer
-        if (!isPaused && remainingSecs > 1.0) { 
-            val remainingMillis = (remainingSecs * 1000.0).toLong()
-            val targetTime = System.currentTimeMillis() + remainingMillis 
-            builder.setUsesChronometer(true)
-            builder.setChronometerCountDown(true)
-            builder.setWhen(targetTime)
-        } else {
-            builder.setUsesChronometer(false)
-            val totalSecs = Math.max(0, remainingSecs.toInt())
-            val mins = totalSecs / 60
-            val secs = totalSecs % 60
-            builder.setContentText("$statusText • ${String.format("%02d:%02d", mins, secs)}")
-        }
-
-        return builder.build()
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
     }
 
     private fun darkenColor(color: Int, factor: Float): Int {
@@ -397,45 +303,39 @@ class TimerService : Service() {
             Math.min(b, 255))
     }
 
-    fun updateNotification() {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, createNotification())
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_TRIGGER_SOUND) {
             val targetTime = intent.getLongExtra("TARGET_TIME", 0L)
-            Log.d(TAG, "Sound triggered via AlarmManager for target $targetTime")
-            
-            // 1. 播放音效 (內含喚醒螢幕)
-            playSound(targetTime, "AlarmManager")
-            
-            // 2. 如果是在 Local 模式 (未連線)，AlarmManager 到期代表階段結束
-            if (!engine.isSynced.value && !engine.isPaused.value) {
-                Log.d(TAG, "Local mode: Alarm triggered phase toggle")
-                lastScheduledTargetEnd = 0L // 先重置，防止安全保險重複觸發
-                engine.localTogglePhase()
-                // 強制在主執行緒刷新通知，確保不顯示負數
-                serviceScope.launch(Dispatchers.Main) {
-                    updateNotification()
-                }
-            }
+            handleTransition(targetTime)
         }
         return START_STICKY
-    }
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        Log.d(TAG, "Task removed (app swiped away). Keeping service running in background.")
-        // 不再呼叫 stopSelf()，確保背景同步與鬧鐘繼續運作
     }
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(screenReceiver)
-        soundJob?.cancel() // 明確取消音效預約
-        alarmManager.cancel(getSoundPendingIntent(lastScheduledTargetEnd))
+        updateJob?.cancel()
         serviceScope.cancel()
-        signalRManager.disconnect()
+        mediaPlayer?.release()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(CHANNEL_ID, "Clock Sync", NotificationManager.IMPORTANCE_LOW)
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    fun updateSettings(newSettings: AppSettings) {
+        currentSettings = newSettings
+        engine.updateDurations(newSettings.workDuration, newSettings.breakDuration)
+        rescheduleAlarm()
+        updateNotification()
+    }
+
+    fun updateNotification() {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(NOTIFICATION_ID, createNotification())
     }
 }

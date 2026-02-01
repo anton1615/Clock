@@ -174,6 +174,14 @@ class MainActivity : ComponentActivity() {
                                 onOpenSettings = { showSettings = true }
                             )
 
+                            // 前台 UI 高頻刷新循環 (50ms)
+                            LaunchedEffect(Unit) {
+                                while (isActive) {
+                                    service.engine.refreshRemainingSeconds()
+                                    delay(50)
+                                }
+                            }
+
                             AnimatedVisibility(
                                 visible = showSetup,
                                 enter = slideInVertically(initialOffsetY = { it }),

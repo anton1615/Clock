@@ -2,7 +2,7 @@
 
 ## 專案現況
 - **專案名稱**: Clock
-- **目前版本**: v1.1.7 (Background Precision & Hardened Sync)
+- **目前版本**: v1.1.8 (Unified Target Architecture)
 - **核心技術**: .NET 10, WPF, Android Native (Kotlin + Compose), SignalR, mDNS
 - **開發日期**: 2026-02-01
 
@@ -22,20 +22,20 @@
 6. **安全性強化 (v1.1.3)**: PC 設定遷移至 LocalAppData，Android 加入 IP/Hostname 驗證。
 7. **電力優化 (v1.1.5)**: Adaptive Ticking (前台 50ms / 背景 1s / 螢幕關閉 1s)。
 8. **可靠性修復 (v1.1.6)**: 修正螢幕關閉時間凍結，實作音效重對齊 (Drift > 2s 重新預約)。
-9. **背景與 UI 硬化 (v1.1.7)**:
-   - **系統級音效預約**: 使用 `AlarmManager.setExactAndAllowWhileIdle` 解決 Doze 模式。
-   - **音效去重機制**: 實作 `lastPlayedTargetTime` 去重，解決背景恢復時的重複音效。
-   - **數值箝位 (Clamping)**: 徹底封殺 `00:-1` 顯示，通知欄小於 1s 自動轉為靜態。
-   - **本地目標時間機制**: 改用 `localTargetEndTime` 模型，確保背景掛起後的恢復準確度。
-   - **服務生存強化**: 移除 `onTaskRemoved` 的 `stopSelf`，確保滑掉 App 後計時繼續。
-   - **黑畫面喚醒**: 實作 `wakeScreen(3s)`，在轉場音效播放時自動點亮螢幕。
-   - **手動 Skip 靜音**: 加入剩餘秒數判定，確保手動跳過階段時不響鈴。
-   - **安全轉場保險 (Safety Net)**: 在 `TimerService` 監聽秒數歸零。若 `AlarmManager` 延遲，Service 會強制播放音效並切換階段，防止卡在 0 秒。
+9. **統一目標架構 (v1.1.8)**:
+   - **單一目標模型 (Single Target Model)**: 引擎不再跑內部循環，改為被動計算剩餘秒數 `TargetEndTime - Now`。徹底解決時間累積誤差與同步漂移。
+   - **按需刷新 (On-Demand Tick)**: 
+     - **前台**: UI 啟動 50ms 循環。
+     - **背景**: Service 啟動 1s 循環（僅螢幕開啟時）。
+     - **黑畫面**: 完全停止內部循環，0% CPU 佔用。
+   - **媒體音量管理**: 改用 `MediaPlayer` 並設定 `USAGE_MEDIA`，使倒數音效完全受「媒體音量」滑桿控制。
+   - **硬體喚醒與轉場**: 透過 `AlarmManager` 強行喚醒 Service 執行轉場，支援在黑畫面轉場時自動播放音效並**亮屏 3 秒**。
+   - **通知欄 UI 鎖定**: 移除 `Chronometer` API，改由 Service 每秒更新靜態文字，嚴格執行 `Math.max(0.0)` 箝位保護，封殺負數顯示。
+   - **服務生存強化**: 移除 `onTaskRemoved` 的 `stopSelf`。即使滑掉 App，計時、同步與鬧鐘仍會繼續運行。
+   - **音效去重機制**: 實作 `lastPlayedTargetTime` 鎖定，解決背景恢復執行時的重複音效觸發問題。
 
 ## 重要技術決策
-- **雙軌音效觸發 (Dual-Track)**: 
-    - **協程 (Coroutine)**: 處理 App 活躍時的低延遲觸發（使用者空間輕量級執行緒）。
-    - **AlarmManager**: 處理 App 休眠/凍結時的系統級喚醒（OS Kernel 服務）。
+- **事件驅動轉場**: 將「計時」與「轉場」解耦。轉場由 OS 級鬧鐘驅動，保證在深度休眠下依然觸發。
 - **單一事實來源**: 以 PC 為同步基準，手機端執行 Round-trip 同步邏輯。
 - **負數保護機制**: 針對分散式系統的時間不對稱性，在所有賦值路徑強制執行下限檢查。
 - **Android 14 合規**: 明確宣告並處理 `SCHEDULE_EXACT_ALARM` 權限。
