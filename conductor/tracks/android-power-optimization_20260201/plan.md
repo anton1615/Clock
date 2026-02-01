@@ -1,12 +1,12 @@
 # Implementation Plan: Android Power Optimization (v1.1.5)
 
-## Phase 1: Infrastructure & Lifecycle Management
+## Phase 1: Infrastructure & Lifecycle Management [checkpoint: 8b703fa]
 - [x] Task: Android - Add `androidx.lifecycle:lifecycle-process` dependency to `build.gradle.kts`. [93bd5c2]
 - [x] Task: Android - Create `AppLifecycleObserver` class implementing `LifecycleEventObserver`. [aa28168]
     - [x] Implement `onStateChanged` to detect `ON_START` and `ON_STOP`.
     - [x] Create a singleton or shared mechanism to expose `isForeground` state to `PomodoroEngine`.
 - [x] Task: Android - Integrate `ProcessLifecycleOwner` in `TimerApplication`. [a0f4ee1]
-- [ ] Task: Conductor - User Manual Verification 'Infrastructure & Lifecycle Management' (Protocol in workflow.md) [checkpoint: ]
+- [x] Task: Conductor - User Manual Verification 'Infrastructure & Lifecycle Management' (Protocol in workflow.md) [checkpoint: 8b703fa]
 
 ## Phase 2: Core Logic Optimization (Adaptive Ticking)
 - [ ] Task: Android - Refactor `PomodoroEngine.kt` to accept `isForeground` and `isScreenOn` states.
