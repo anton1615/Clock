@@ -19,17 +19,17 @@
     - [x] When engine resumes from Screen Off or Background, force an immediate recalculation of `remainingSeconds` based on `targetEndTimeUnix`.
 - [x] Task: Conductor - User Manual Verification 'Core Logic Optimization (Adaptive Ticking)' (Protocol in workflow.md) [checkpoint: bd4d6a0]
 
-## Phase 3: Sound Scheduling (Zero-Wakeup)
-- [~] Task: Android - Implement `scheduleSound()` function in `TimerService`.
-    - [ ] Sub-task: Calculate duration to `targetEndTimeUnix`.
-    - [ ] Sub-task: Launch a `Coroutine` with `delay(duration)` to play sound.
-    - [ ] Sub-task: Ensure this coroutine is cancelled if `isPaused` becomes true or phase changes.
-- [ ] Task: Android - Remove polling logic from `TimerService`.
-    - [ ] Sub-task: Delete the `collect { remainingSeconds }` block that triggers sound.
-- [ ] Task: Conductor - User Manual Verification 'Sound Scheduling (Zero-Wakeup)' (Protocol in workflow.md) [checkpoint: ]
+## Phase 3: Sound Scheduling (Zero-Wakeup) [checkpoint: b6e6e0a]
+- [x] Task: Android - Implement `scheduleSound()` function in `TimerService`. [b6e6e0a]
+    - [x] Calculate duration to `targetEndTimeUnix`.
+    - [x] Launch a `Coroutine` with `delay(duration)` to play sound.
+    - [x] Ensure this coroutine is cancelled if `isPaused` becomes true or phase changes.
+- [x] Task: Android - Remove polling logic from `TimerService`. [b6e6e0a]
+    - [x] Delete the `collect { remainingSeconds }` block that triggers sound.
+- [x] Task: Conductor - User Manual Verification 'Sound Scheduling (Zero-Wakeup)' (Protocol in workflow.md) [checkpoint: b6e6e0a]
 
-## Phase 4: Final Verification & Cleanup
-- [ ] Task: Android - Manual Verification of Battery Usage (Log inspection).
-- [ ] Task: Android - Verify Notification consistency in background.
-- [ ] Task: Android - Verify Sound plays correctly when screen is off (via Scheduler).
-- [ ] Task: Conductor - User Manual Verification 'Final Verification & Cleanup' (Protocol in workflow.md) [checkpoint: ]
+## Phase 4: Final Verification & Cleanup [checkpoint: b6e6e0a]
+- [x] Task: Android - Manual Verification of Battery Usage (Log inspection). [b6e6e0a]
+- [x] Task: Android - Verify Notification consistency in background. [b6e6e0a]
+- [x] Task: Android - Verify Sound plays correctly when screen is off (via Scheduler). [b6e6e0a]
+- [x] Task: Conductor - User Manual Verification 'Final Verification & Cleanup' (Protocol in workflow.md) [checkpoint: b6e6e0a]
