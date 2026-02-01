@@ -199,6 +199,7 @@ class MainActivity : ComponentActivity() {
                                     onDisconnect = { 
                                         service.signalRManager.disconnect()
                                         service.engine.reset()
+                                        showSetup = false // 增加這一行：點擊後收起選單
                                     }
                                 )
                             }

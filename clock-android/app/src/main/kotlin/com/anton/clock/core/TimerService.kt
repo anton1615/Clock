@@ -101,7 +101,17 @@ class TimerService : Service() {
         // 監聽 SignalR 狀態與引擎狀態
         serviceScope.launch {
             signalRManager.connectionState.collectLatest { state ->
-                engine.setSyncStatus(state == HubConnectionState.CONNECTED)
+                val isConnected = state == HubConnectionState.CONNECTED
+                engine.setSyncStatus(isConnected)
+                
+                if (isConnected) {
+                    Log.d(TAG, "Connected to PC, resetting local sound and syncing...")
+                    soundJob?.cancel() // 連上時先取消本地舊預約
+                } else {
+                    Log.d(TAG, "Disconnected from PC, returning to local defaults.")
+                    engine.reset(startPaused = true) // 斷線後回到本地預設(25/5分)並暫停
+                    scheduleSound() // 這會因為暫停而自動 cancel 預約
+                }
                 updateNotification()
             }
         }
@@ -110,8 +120,6 @@ class TimerService : Service() {
             signalRManager.lastState.collectLatest { state ->
                 state?.let { 
                     engine.applyState(it)
-                    // applyState 內部會更新 engine 的 isPaused 和 isWorkPhase
-                    // 這些 flow 的變動會觸發下面的 collect 進行 scheduleSound
                 }
             }
         }
@@ -277,6 +285,7 @@ class TimerService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(screenReceiver)
+        soundJob?.cancel() // 明確取消音效預約
         serviceScope.cancel()
         signalRManager.disconnect()
     }
