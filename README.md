@@ -11,6 +11,13 @@
 A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
 Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
+## 🚀 New in v1.1.11: Navigation & Sync Precision
+
+*   **Exclusive Screen Navigation**: Refactored UI state management to use an Enum-based mutually exclusive system. This prevents "dialog stacking" and significantly reduces UI lag when rapidly toggling between Sync and Settings.
+*   **System Back Button Support**: Implemented `BackHandler` in Jetpack Compose. You can now use your phone's hardware/gesture back button to exit Setup or Settings screens and return to the main timer.
+*   **Progress Circle Sync Fix**: The Android app now correctly receives and applies the `TotalDurationSeconds` from the PC host. The progress circle now accurately reflects the percentage of time remaining based on the PC's custom durations.
+*   **mDNS Energy Optimization**: Scanning now strictly stops when the Sync screen is closed, further reducing idle CPU and battery usage.
+
 ## 🚀 New in v1.1.10: Reliability & Lifecycle Fixes
 
 *   **Sound Settings Hot-Reload**: Fixed a bug where changing the sound setting wouldn't take effect immediately. The engine now properly unloads the previous `SoundPool` resource before loading the new one, ensuring your choice is applied instantly.

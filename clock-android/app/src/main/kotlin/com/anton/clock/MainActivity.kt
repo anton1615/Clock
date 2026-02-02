@@ -63,6 +63,10 @@ import android.view.WindowManager
 import android.media.RingtoneManager
 import android.net.Uri
 
+import androidx.activity.compose.BackHandler
+
+enum class ScreenState { Main, Setup, Settings }
+
 class MainActivity : ComponentActivity() {
     private var timerService: TimerService? = null
     private var isBound by mutableStateOf(false)
@@ -140,25 +144,30 @@ class MainActivity : ComponentActivity() {
                 val connectionState by service.signalRManager.connectionState.collectAsState()
                 val localIp = remember { getLocalIpAddress() }
                 
-                var showSetup by remember { mutableStateOf(false) }
-                var showSettings by remember { mutableStateOf(false) }
+                var currentScreen by remember { mutableStateOf(ScreenState.Main) }
+
+                BackHandler(enabled = currentScreen != ScreenState.Main) {
+                    currentScreen = ScreenState.Main
+                }
 
                 // 同步狀態處理：連線成功後自動收起設定頁，並停止掃描
                 LaunchedEffect(connectionState) {
                     if (connectionState == HubConnectionState.CONNECTED) {
                         mdnsScanner.stopScan()
                         delay(500)
-                        showSetup = false
+                        currentScreen = ScreenState.Main
                     }
                 }
 
                 // 自動搜尋
-                LaunchedEffect(showSetup, connectionState) {
-                    if (showSetup && connectionState == HubConnectionState.DISCONNECTED) {
+                LaunchedEffect(currentScreen, connectionState) {
+                    if (currentScreen == ScreenState.Setup && connectionState == HubConnectionState.DISCONNECTED) {
                         while (isActive) {
                             mdnsScanner.startScan()
                             delay(8000)
                         }
+                    } else {
+                        mdnsScanner.stopScan()
                     }
                 }
 
@@ -170,8 +179,8 @@ class MainActivity : ComponentActivity() {
                                 network = service.signalRManager,
                                 isSynced = connectionState == HubConnectionState.CONNECTED,
                                 settings = currentSettings,
-                                onOpenSetup = { showSetup = true },
-                                onOpenSettings = { showSettings = true }
+                                onOpenSetup = { currentScreen = ScreenState.Setup },
+                                onOpenSettings = { currentScreen = ScreenState.Settings }
                             )
 
                             // 前台 UI 高頻刷新循環 (50ms)
@@ -183,7 +192,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             AnimatedVisibility(
-                                visible = showSetup,
+                                visible = currentScreen == ScreenState.Setup,
                                 enter = slideInVertically(initialOffsetY = { it }),
                                 exit = slideOutVertically(targetOffsetY = { it })
                             ) {
@@ -203,17 +212,17 @@ class MainActivity : ComponentActivity() {
                                             Toast.makeText(context, "Invalid IP or Hostname format.", Toast.LENGTH_SHORT).show()
                                         }
                                     },
-                                    onClose = { showSetup = false },
+                                    onClose = { currentScreen = ScreenState.Main },
                                     onDisconnect = { 
                                         service.signalRManager.disconnect()
                                         service.engine.reset()
-                                        showSetup = false // 增加這一行：點擊後收起選單
+                                        currentScreen = ScreenState.Main // 收起選單
                                     }
                                 )
                             }
 
                             AnimatedVisibility(
-                                visible = showSettings,
+                                visible = currentScreen == ScreenState.Settings,
                                 enter = slideInHorizontally(initialOffsetX = { it }),
                                 exit = slideOutHorizontally(targetOffsetX = { it })
                             ) {
@@ -236,10 +245,10 @@ class MainActivity : ComponentActivity() {
                                             currentSettings = newSettings
                                             applyEngineSettings()
                                             applyKeepScreenOn(newSettings.keepScreenOn)
-                                            showSettings = false
+                                            currentScreen = ScreenState.Main
                                         }
                                     },
-                                    onBack = { showSettings = false }
+                                    onBack = { currentScreen = ScreenState.Main }
                                 )
                             }
                         }
@@ -411,7 +420,11 @@ fun TimerScreen(
     val themeColorHex = if (isWorkPhase) settings.workColor else settings.breakColor
     val themeColor = Color(android.graphics.Color.parseColor(themeColorHex))
     
-    val totalDuration = (if (isWorkPhase) engine.workDurationMinutes else engine.breakDurationMinutes) * 60.0
+    val totalDuration = if (isSynced && engine.syncedTotalDuration > 0) {
+        engine.syncedTotalDuration
+    } else {
+        (if (isWorkPhase) engine.workDurationMinutes else engine.breakDurationMinutes) * 60.0
+    }
     val progress = if (totalDuration > 0) (remainingSeconds / totalDuration).toFloat() else 1f
 
     Box(modifier = Modifier.fillMaxSize()) {

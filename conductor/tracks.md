@@ -17,6 +17,9 @@ This file tracks all major tracks for the project. Each track has its own detail
 - [x] **Track: 統一目標架構與轉場硬化 (Unified Target Architecture v1.1.8)**
 *Ref: Background stability, Media volume control, and Screen wake-up.*
 
+- [x] **Track: 導航優化與同步精度強化 (Navigation & Sync Accuracy v1.1.11)**
+*Ref: Back button support, Exclusive screens, and Total duration sync.*
+
 ---
 
 - [x] **Track: 安全性與隱私強化 (Security & Privacy Hardening)**

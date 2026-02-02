@@ -26,6 +26,9 @@ class PomodoroEngine(
     private var targetEndTime: Long = 0L
     private var pausedRemainingSeconds: Double = workDurationMinutes * 60.0
     
+    // 來自 PC 的總時長 (秒)，用於正確繪製圓圈進度
+    var syncedTotalDuration: Double = 0.0
+
     private var nextWorkMins: Int = workDurationMinutes
     private var nextBreakMins: Int = breakDurationMinutes
 
@@ -57,6 +60,7 @@ class PomodoroEngine(
     fun applyState(state: EngineState) {
         _isWorkPhase.value = state.isWorkPhase
         _isPaused.value = state.isPaused
+        syncedTotalDuration = state.totalDurationSeconds
         
         if (!state.isPaused && state.targetEndTimeUnix > 0) {
             // 同步模式下的對時補償
@@ -108,6 +112,7 @@ class PomodoroEngine(
         val mins = if (_isWorkPhase.value) workDurationMinutes else breakDurationMinutes
         
         pausedRemainingSeconds = mins * 60.0
+        syncedTotalDuration = 0.0 // Reset synced duration
         _isPaused.value = startPaused
         
         if (!startPaused) {
