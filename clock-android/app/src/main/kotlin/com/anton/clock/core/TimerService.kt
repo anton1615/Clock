@@ -153,6 +153,13 @@ class TimerService : Service() {
 
     private fun loadCurrentSound() {
         val soundUriStr = currentSettings.soundUri
+        
+        // Unload previous sound to release memory and ensure update
+        if (soundId != -1) {
+            soundPool?.unload(soundId)
+            soundId = -1
+        }
+
         if (soundUriStr == "silent" || soundUriStr == null) return
         
         try {
@@ -161,6 +168,7 @@ class TimerService : Service() {
             contentResolver.openAssetFileDescriptor(uri, "r")?.use { afd ->
                 soundId = soundPool?.load(afd, 1) ?: -1
             }
+            Log.d(TAG, "[SOUND] Loaded sound: $soundUriStr (ID: $soundId)")
         } catch (e: Exception) { Log.e(TAG, "SoundPool load failed", e) }
     }
 
@@ -300,6 +308,12 @@ class TimerService : Service() {
             handleTransition(targetTime)
         }
         return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.d(TAG, "[SERVICE] App swiped away, stopping service and notification")
+        stopSelf()
     }
 
     override fun onDestroy() {

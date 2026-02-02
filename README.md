@@ -11,6 +11,11 @@
 A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
 Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 
+## 🚀 New in v1.1.10: Reliability & Lifecycle Fixes
+
+*   **Sound Settings Hot-Reload**: Fixed a bug where changing the sound setting wouldn't take effect immediately. The engine now properly unloads the previous `SoundPool` resource before loading the new one, ensuring your choice is applied instantly.
+*   **Clean App Exit**: Restored standard Android lifecycle behavior. Swiping the app away from the Recents list now explicitly stops the background service (`stopSelf`), eliminating "zombie" notifications that would previously reappear.
+
 ## 🚀 New in v1.1.9: Pixel Reliability & Low-Latency Audio
 
 *   **AlarmClock Integration**: Upgraded from standard alarms to `setAlarmClock()`. This is the highest priority trigger in Android, effectively bypassing Pixel's aggressive battery optimizations and ensuring phase transitions are never delayed in deep sleep.
