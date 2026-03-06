@@ -45,3 +45,4 @@ build/
 *.iml
 clock-android/.cxx/
 clock-android/app/build/
+GEMINI.md
