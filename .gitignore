@@ -32,3 +32,16 @@ MyPomodoro/
 # Exclude Development/AI Tooling metadata (Optional)
 conductor/
 TestResults/
+
+# Android
+local.properties
+.gradle/
+build/
+*.apk
+*.aab
+*.keystore
+*.jks
+.idea/
+*.iml
+clock-android/.cxx/
+clock-android/app/build/
