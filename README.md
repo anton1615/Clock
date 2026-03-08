@@ -8,8 +8,14 @@
   <img src="screenshot.png" alt="Clock Screenshot">
 </p>
 
-A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization. 
+A minimalist, unobtrusive Pomodoro timer with real-time Android synchronization.
 Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
+
+## Security Notice
+
+> This project is currently best treated as a prototype-grade application from a security hardening perspective.
+> Use it only on trusted networks, and do not assume the current desktop/mobile builds are hardened production releases.
+> If you deploy sync features beyond your own devices, review signing, network exposure, and access controls before relying on it in a broader environment.
 
 ## 🚀 New in v1.1.11: Navigation & Sync Precision
 
