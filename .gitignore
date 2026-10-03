@@ -29,6 +29,9 @@ Assets/*.wav
 setting.json
 MyPomodoro/
 
+# Exclude publish output (single-file release build)
+publish/
+
 # Exclude Development/AI Tooling metadata (Optional)
 conductor/
 TestResults/
