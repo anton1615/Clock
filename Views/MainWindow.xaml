@@ -28,8 +28,12 @@
         <Style x:Key="BlinkingTextStyle" TargetType="TextBlock">
             <Setter Property="Opacity" Value="1.0"/>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding Engine.IsPaused}" Value="True">
-                    <DataTrigger.EnterActions>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding Engine.IsPaused}" Value="True"/>
+                        <Condition Binding="{Binding Settings.IsPauseBlinkEnabled}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <MultiDataTrigger.EnterActions>
                         <BeginStoryboard>
                             <Storyboard RepeatBehavior="Forever">
                                 <DoubleAnimationUsingKeyFrames Storyboard.TargetProperty="Opacity" Duration="0:0:1.5">
@@ -40,15 +44,15 @@
                                 </DoubleAnimationUsingKeyFrames>
                             </Storyboard>
                         </BeginStoryboard>
-                    </DataTrigger.EnterActions>
-                    <DataTrigger.ExitActions>
+                    </MultiDataTrigger.EnterActions>
+                    <MultiDataTrigger.ExitActions>
                         <BeginStoryboard>
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0"/>
                             </Storyboard>
                         </BeginStoryboard>
-                    </DataTrigger.ExitActions>
-                </DataTrigger>
+                    </MultiDataTrigger.ExitActions>
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -118,13 +122,13 @@
                                    Text="{Binding DisplayTime}" 
                                    FontSize="90" 
                                    FontFamily="{Binding Settings.FontFamily}"
-                                   Foreground="{Binding Settings.TextColor, Converter={StaticResource HexToBrushConverter}}"
                                    FontWeight="{Binding Settings.IsBold, Converter={StaticResource BoolToFontWeightConverter}}"
                                    Style="{StaticResource BlinkingTextStyle}"
                                    VerticalAlignment="Center"
                                    HorizontalAlignment="Center"
                                    TextAlignment="Center"
-                                   Margin="5,-10,15,0"/>
+                                   Margin="5,-10,15,0"
+                                   Foreground="{Binding Settings.TextColor, Converter={StaticResource HexToBrushConverter}}"/>
 
                         <!-- 按鈕 -->
                         <Button Grid.Column="1" 

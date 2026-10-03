@@ -92,7 +92,7 @@ jobs:
             clock.apk
           name: Release ${{ github.ref_name }}
           body: |
-            ## Clock v${{ github.ref_name }}
+            ## Clock ${{ github.ref_name }}
             
             Automatic build by GitHub Actions for multiple platforms.
             

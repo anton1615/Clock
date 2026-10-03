@@ -113,6 +113,22 @@
                 <WrapPanel x:Name="BreakColorPresets"/>
             </StackPanel>
 
+            <!-- Paused Color -->
+            <TextBlock Text="Paused Color"/>
+            <StackPanel Margin="0,0,0,10">
+                <Grid Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="PausedColorPreview" Width="24" Height="24" CornerRadius="12" BorderBrush="Gray" BorderThickness="1" Margin="0,0,8,0"/>
+                    <TextBox x:Name="PausedColorBox" Grid.Column="1" Padding="5"/>
+                </Grid>
+                <WrapPanel x:Name="PausedColorPresets"/>
+            </StackPanel>
+
+            <CheckBox x:Name="BlinkCheck" Content="Blink Text When Paused" Margin="0,0,0,10" FontWeight="Bold"/>
+
             <TextBlock Text="Notification Volume"/>
             <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Margin="0,0,0,10"/>
 

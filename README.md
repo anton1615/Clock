@@ -17,90 +17,6 @@ Built with .NET 10 (WPF) and Native Android (Kotlin + Jetpack Compose).
 > Use it only on trusted networks, and do not assume the current desktop/mobile builds are hardened production releases.
 > If you deploy sync features beyond your own devices, review signing, network exposure, and access controls before relying on it in a broader environment.
 
-## 🚀 New in v1.1.11: Navigation & Sync Precision
-
-*   **Exclusive Screen Navigation**: Refactored UI state management to use an Enum-based mutually exclusive system. This prevents "dialog stacking" and significantly reduces UI lag when rapidly toggling between Sync and Settings.
-*   **System Back Button Support**: Implemented `BackHandler` in Jetpack Compose. You can now use your phone's hardware/gesture back button to exit Setup or Settings screens and return to the main timer.
-*   **Progress Circle Sync Fix**: The Android app now correctly receives and applies the `TotalDurationSeconds` from the PC host. The progress circle now accurately reflects the percentage of time remaining based on the PC's custom durations.
-*   **mDNS Energy Optimization**: Scanning now strictly stops when the Sync screen is closed, further reducing idle CPU and battery usage.
-
-## 🚀 New in v1.1.10: Reliability & Lifecycle Fixes
-
-*   **Sound Settings Hot-Reload**: Fixed a bug where changing the sound setting wouldn't take effect immediately. The engine now properly unloads the previous `SoundPool` resource before loading the new one, ensuring your choice is applied instantly.
-*   **Clean App Exit**: Restored standard Android lifecycle behavior. Swiping the app away from the Recents list now explicitly stops the background service (`stopSelf`), eliminating "zombie" notifications that would previously reappear.
-
-## 🚀 New in v1.1.9: Pixel Reliability & Low-Latency Audio
-
-*   **AlarmClock Integration**: Upgraded from standard alarms to `setAlarmClock()`. This is the highest priority trigger in Android, effectively bypassing Pixel's aggressive battery optimizations and ensuring phase transitions are never delayed in deep sleep.
-*   **SoundPool Engine**: Replaced MediaPlayer with `SoundPool`. Audio is now pre-loaded into memory and routed through the **Alarm/Notification stream**. This eliminates the 10-second "audio focus" delay when playing music via Bluetooth.
-*   **Android 14 Hardening**: Implemented the `USE_EXACT_ALARM` permission for automatic authorization on newer Android versions. Added a **Triple-Fallback** mechanism to ensure the app never crashes due to permission changes.
-*   **Notification Fixes**: Optimized notification channel priority and categories (`CATEGORY_ALARM`) to restore custom stage colors and prevent notifications from being hidden by Android's adaptive battery on the lock screen.
-
-## 🚀 New in v1.1.8: Unified Target Architecture & Stability
-
-*   **Single Target Model (Android)**: Re-engineered the core timing engine to use a passive "Single Target" calculation. This eliminates all cumulative drift and ensures the phone stays perfectly synced with the physical time or PC host.
-*   **Non-Blocking Transitions**: Fixed a critical bug where audio focus contention (e.g., when playing Spotify) could delay phase transitions by over 10 seconds. The app now prioritizes immediate UI updates and handles audio preparation asynchronously.
-*   **Media Volume Control (Android)**: Switched from Ringtone to `MediaPlayer` using `USAGE_MEDIA`. The countdown sound is now controlled by your phone's **Media Volume** (music/video volume), resolving previous control inconsistencies.
-*   **Intelligent Screen Wake-up**: When a phase transition occurs in the background, the app now automatically **wakes up the screen for 3 seconds** and plays the notification sound, ensuring you see the status change immediately.
-*   **Zero-Loop Power Efficiency**: App internal loops are completely suspended when the screen is off (0% CPU usage). Transitions are driven by system-level hardware alarms via `AlarmManager`.
-*   **UI Negative Protection**: Completely removed the unstable `Chronometer` API in notifications. Time is now manually updated as static text every second, strictly clamped at `00:00` to prevent any negative displays.
-*   **Persistent Service**: Swiping the app away from the Recents list no longer stops the timer. The Foreground Service is hardened to maintain synchronization and alarm reliability.
-
-## 🚀 New in v1.1.7: Background Precision & Sound Deduplication
-
-*   **AlarmManager Integration**: Uses `setExactAndAllowWhileIdle` for sound triggering, bypassing Android's Doze Mode restrictions.
-*   **Sound Deduplication**: Implemented a `lastPlayedTargetTime` lock to prevent "double sounds" when waking up from background or transitioning between power modes.
-*   **Safety Net**: Added a background monitor that forces a phase transition if the system alarm is delayed by more than 1 second, preventing the timer from getting stuck at zero.
-
-## 🚀 New in v1.1.6: Reliability & Sync Fixes
-
-*   **Fixed Screen-Off Time Freeze**: The timer now correctly tracks elapsed time while the screen is off by utilizing a persistent time reference and a 1s "Power-Efficient Tick".
-*   **Intelligent Sound Re-Sync**: Android now monitors sync drift from the PC. If the remaining time jumps by more than 2 seconds (e.g., during initial connection or manual duration changes), the notification sound is automatically rescheduled to stay perfectly aligned.
-*   **Clean Task Exit**: Swiping the app away from the Android Recents list now properly terminates the background service and removes the notification, ensuring a predictable lifecycle.
-*   **Pause/Resume Robustness**: Improved time tracking logic to prevent "time jumps" when resuming from a paused state or transitioning between power modes.
-
-## 🚀 New in v1.1.5: Power Optimization & Logic Fixes
-
-*   **Adaptive Ticking (Android)**: Optimized battery usage by adjusting computation frequency based on app state:
-    *   **Foreground**: 50ms (for smooth animations).
-    *   **Background**: 1s (to update notification bar).
-    *   **Screen Off**: **Power-Efficient Tick** (1s). CPU maintains logic consistency without excessive wakeups.
-*   **Scheduled Sound Triggers**: Replaced high-frequency polling with a Coroutine-based "Pre-set Alarm" mechanism. Sound triggers accurately even when the CPU is sleeping.
-*   **Automatic Phase Cycling**: Standalone mode now correctly cycles through Work/Break phases without manual intervention.
-*   **Robust Sync Transitions**: 
-    *   **Auto-Resume**: Manual phase switching no longer causes unintended pauses.
-    *   **Graceful Disconnect**: App now automatically resets to defaults and cancels alarms when the PC connection is lost or the PC app is closed.
-*   **Consistent APK Signing**: Fixed the "App not installed" error during updates. From v1.1.5 onwards, you can directly overwrite previous versions without uninstalling.
-
-## 🚀 New in v1.1.3: Security & Privacy Hardening
-
-*   **Secure Settings Migration (PC)**: `setting.json` is now stored in `%LocalAppData%\Clock` for better permission management and system compliance. Automatic migration from the old location is included.
-*   **Privacy-First Notifications (Android)**: Notification visibility is now set to `PRIVATE` to protect timer details on the lock screen.
-*   **Restricted Network Access**: PC-side CORS policies are now tightened to prevent unauthorized cross-origin requests from browsers.
-*   **Enhanced Input Validation**: 
-    *   **Android**: Strict IP/Hostname validation for PC discovery to prevent SSRF.
-    *   **Both**: Hex color validation to prevent crashes from malformed settings.
-*   **PowerShell Safety**: Improved startup script generation with proper string escaping.
-*   **Battery Optimization**: Android mDNS scanning now automatically stops after a successful connection to save power.
-
-## 🚀 New in v1.1.1: Background Service & CI/CD Release
-
-*   **Background Sync**: Android app now stays connected in the background using a Foreground Service.
-*   **Notification Countdown**: Real-time countdown (MM:SS) directly in your Android notification bar with stage-specific accent colors and "Public" visibility for lock screens.
-*   **Local Settings (Android)**: Customize Work/Break durations and accent colors directly on your phone.
-*   **Keep Screen On**: Option to prevent Android devices from sleeping while the app is in focus.
-*   **System Audio Integration**: Android client automatically uses your phone's default notification sound—or choose any system ringtone via the new settings menu.
-*   **Console Toggle**: PC users can now hide/show the developer console window via the Settings GUI.
-*   **Automated APK Builds**: GitHub Actions now provides both `.exe` and `.apk` in the Release section.
-
-## 🚀 New in v1.1.0: Android Sync
-
-*   **Real-time Sync**: Synchronize time, phase (Work/Break), and pause status between PC and Phone.
-*   **Automatic Discovery**: Uses mDNS to automatically find your PC on the local network.
-*   **Tailscale Support**: Full compatibility with Tailscale VPN for syncing across different networks.
-*   **High-Precision Engine**: Both PC and Mobile now use UTC timestamp-based calculations to eliminate clock drift.
-*   **Standalone Mode**: App automatically degrades to a standalone timer when disconnected.
-
 ## ✨ Features
 
 *   **Minimalist Widget**: Frameless window that sits quietly on your desktop.
@@ -154,6 +70,8 @@ To respect copyright laws, **the Windows version does not include sound files**.
   "Volume": 50,                // 0-100
   "WorkColor": "#FF8C00",      // Hex color
   "BreakColor": "#32CD32",
+  "PausedColor": "#1E90FF",    // Background/bar color while paused
+  "IsPauseBlinkEnabled": false, // Blink the paused text
   "SoundPath": "Assets/notify.wav",
   "IsStartupEnabled": false
 }

@@ -17,12 +17,11 @@ namespace clock.Converters
             if (values.Length < 2 || values[0] is not PomodoroEngine engine || values[1] is not AppSettings settings)
                 return Brushes.Orange;
 
-            string colorHex = engine.IsWorkPhase ? settings.WorkColor : settings.BreakColor;
-            
             try
             {
+                string colorHex = engine.IsPaused ? settings.PausedColor : (engine.IsWorkPhase ? settings.WorkColor : settings.BreakColor);
                 var color = (Color)ColorConverter.ConvertFromString(colorHex);
-                
+
                 // 如果參數是 "Background"，則返回深色背景
                 if (parameter?.ToString() == "Background")
                 {

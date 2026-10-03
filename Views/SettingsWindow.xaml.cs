@@ -39,7 +39,9 @@ namespace clock.Views
             TextColorBox.Text = _settings.TextColor;
             WorkColorBox.Text = _settings.WorkColor;
             BreakColorBox.Text = _settings.BreakColor;
+            PausedColorBox.Text = _settings.PausedColor;
             VolumeSlider.Value = _settings.Volume;
+            BlinkCheck.IsChecked = _settings.IsPauseBlinkEnabled;
 
             // 即時預覽設定 (Live Preview)
             AlphaSlider.ValueChanged += (s, e) => _settings.BackgroundAlpha = (byte)AlphaSlider.Value;
@@ -57,12 +59,15 @@ namespace clock.Views
             InitializeColorPicker(TextColorPresets, TextColorBox, TextColorPreview, c => _settings.TextColor = c, _settings.TextColor, true);
             InitializeColorPicker(WorkColorPresets, WorkColorBox, WorkColorPreview, c => _settings.WorkColor = c, _settings.WorkColor);
             InitializeColorPicker(BreakColorPresets, BreakColorBox, BreakColorPreview, c => _settings.BreakColor = c, _settings.BreakColor);
+            InitializeColorPicker(PausedColorPresets, PausedColorBox, PausedColorPreview, c => _settings.PausedColor = c, _settings.PausedColor);
 
             VolumeSlider.ValueChanged += (s, e) => _settings.Volume = VolumeSlider.Value;
             StartupCheck.Checked += (s, e) => _settings.IsStartupEnabled = true;
             StartupCheck.Unchecked += (s, e) => _settings.IsStartupEnabled = false;
             ConsoleCheck.Checked += (s, e) => _settings.ShowConsole = true;
             ConsoleCheck.Unchecked += (s, e) => _settings.ShowConsole = false;
+            BlinkCheck.Checked += (s, e) => _settings.IsPauseBlinkEnabled = true;
+            BlinkCheck.Unchecked += (s, e) => _settings.IsPauseBlinkEnabled = false;
         }
 
         private void InitializeColorPicker(WrapPanel panel, TextBox box, Border preview, Action<string> updateAction, string initialValue, bool isText = false)

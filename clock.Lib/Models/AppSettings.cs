@@ -23,6 +23,8 @@ namespace clock.Models
         [ObservableProperty] private double _volume = 50;
         [ObservableProperty] private string _workColor = "#FF8C00";
         [ObservableProperty] private string _breakColor = "#32CD32";
+        [ObservableProperty] private string _pausedColor = "#1E90FF";
+        [ObservableProperty] private bool _isPauseBlinkEnabled = false;
         [ObservableProperty] private string _soundPath = "Assets/notify.wav";
         [ObservableProperty] private bool _isStartupEnabled = false;
         [ObservableProperty] private bool _showConsole = true;
